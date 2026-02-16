@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
-import { apiService } from '@/apiService'
-import { useToast } from '@/App'
+import { apiService } from '../../../apiService'
+import { useToast } from '../../../App'
 import { VacancyForm } from './VacancyForm'
 import { ResumeForm } from './ResumeForm'
 

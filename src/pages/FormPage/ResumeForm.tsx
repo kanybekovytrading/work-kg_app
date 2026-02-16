@@ -2,9 +2,9 @@ import React, { useEffect, useState } from 'react'
 import { useForm, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { ResumeFormData, resumeSchema } from './schemas'
-import { apiService } from '@/apiService'
+import { apiService } from '../../../apiService'
 import { FormField } from '.'
-import { ElegantSelect } from '@/App'
+import { ElegantSelect } from '../../../App'
 
 const inputClass =
 	'w-full bg-slate-50 border border-slate-100 h-14 px-6 rounded-2xl text-sm font-bold focus:outline-none ring-2 ring-transparent focus:ring-red-50 transition-all placeholder:text-slate-300 text-slate-900'
@@ -36,7 +36,7 @@ export const ResumeForm: React.FC<Props> = ({
 		reset,
 		formState: { errors },
 	} = useForm<ResumeFormData>({
-		resolver: zodResolver(resumeSchema),
+		resolver: zodResolver(resumeSchema) as any,
 		defaultValues: initialData || {
 			cityId: 1,
 			sphereId: 0,
@@ -115,6 +115,7 @@ export const ResumeForm: React.FC<Props> = ({
 				control={control}
 				render={({ field }) => (
 					<ElegantSelect
+						placeholder=''
 						label='Пол'
 						value={field.value}
 						options={[
@@ -132,6 +133,7 @@ export const ResumeForm: React.FC<Props> = ({
 					control={control}
 					render={({ field }) => (
 						<ElegantSelect
+							placeholder=''
 							label='Город'
 							value={field.value}
 							options={cities}
@@ -144,6 +146,7 @@ export const ResumeForm: React.FC<Props> = ({
 					control={control}
 					render={({ field }) => (
 						<ElegantSelect
+							placeholder=''
 							label='Желаемая сфера'
 							value={field.value}
 							options={spheres}
@@ -160,6 +163,7 @@ export const ResumeForm: React.FC<Props> = ({
 						control={control}
 						render={({ field }) => (
 							<ElegantSelect
+								placeholder=''
 								label='Категория'
 								value={field.value}
 								options={categories}

@@ -1,9 +1,9 @@
-import { apiService } from '@/apiService'
 import React, { useEffect, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { VacancyForm } from './VacancyForm'
 import { ResumeForm } from './ResumeForm'
-import { useToast } from '@/App'
+import { useToast } from '../../../App'
+import { apiService } from '../../../apiService'
 
 const EditPage: React.FC<{ telegramId: number }> = ({ telegramId }) => {
 	const navigate = useNavigate()

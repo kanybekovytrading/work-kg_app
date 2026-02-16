@@ -2,9 +2,9 @@ import React, { useEffect, useState } from 'react'
 import { useForm, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { VacancyFormData, vacancySchema, formatPhoneKG } from './schemas'
-import { apiService } from '@/apiService'
+import { apiService } from '../../../apiService'
 import { FormField } from '.'
-import { AddressAutocomplete2GIS, ElegantSelect } from '@/App'
+import { AddressAutocomplete2GIS, ElegantSelect } from '../../../App'
 
 const inputClass =
 	'w-full bg-slate-50 border border-slate-100 h-14 px-6 rounded-2xl text-sm font-bold focus:outline-none ring-2 ring-transparent focus:ring-red-50 transition-all placeholder:text-slate-300 text-slate-900'
@@ -36,7 +36,7 @@ export const VacancyForm: React.FC<Props> = ({
 		reset,
 		formState: { errors },
 	} = useForm<VacancyFormData>({
-		resolver: zodResolver(vacancySchema),
+		resolver: zodResolver(vacancySchema) as any,
 		defaultValues: initialData || {
 			cityId: 1,
 			sphereId: 0,
@@ -80,7 +80,7 @@ export const VacancyForm: React.FC<Props> = ({
 	}, [selectedCategory, telegramId])
 
 	return (
-		<form onSubmit={handleSubmit(onSubmit)} className='space-y-6'>
+		<form onSubmit={handleSubmit(onSubmit as any)} className='space-y-6'>
 			<FormField label='Название вакансии' error={errors.title?.message}>
 				<Controller
 					name='title'
@@ -129,6 +129,7 @@ export const VacancyForm: React.FC<Props> = ({
 				control={control}
 				render={({ field }) => (
 					<ElegantSelect
+						placeholder=''
 						label='Кого вы ищете?'
 						value={field.value}
 						options={[
@@ -147,6 +148,7 @@ export const VacancyForm: React.FC<Props> = ({
 					control={control}
 					render={({ field }) => (
 						<ElegantSelect
+							placeholder=''
 							label='Город'
 							value={field.value}
 							options={cities}
@@ -159,6 +161,7 @@ export const VacancyForm: React.FC<Props> = ({
 					control={control}
 					render={({ field }) => (
 						<ElegantSelect
+							placeholder=''
 							label='Сфера'
 							value={field.value}
 							options={spheres}
@@ -176,6 +179,7 @@ export const VacancyForm: React.FC<Props> = ({
 						control={control}
 						render={({ field }) => (
 							<ElegantSelect
+								placeholder=''
 								label='Категория'
 								value={field.value}
 								options={categories}
@@ -193,6 +197,7 @@ export const VacancyForm: React.FC<Props> = ({
 						control={control}
 						render={({ field }) => (
 							<ElegantSelect
+								placeholder=''
 								label='Подкатегория'
 								value={field.value}
 								options={subcategories}
