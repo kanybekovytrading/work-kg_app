@@ -2159,11 +2159,11 @@ const DetailPage: React.FC<{ telegramId: number }> = ({ telegramId }) => {
 		if (!item?.phone) return false
 
 		// Если бэкенд прислал флаг, что это бесплатно — открываем сразу
-		if (item.isFree === true) return false
+		if (item.free === true) return false
 
 		// В остальных случаях проверяем маску (звездочки)
 		return String(item.phone).includes('*')
-	}, [item?.phone, item?.isFree])
+	}, [item?.phone, item?.free])
 
 	if (loading)
 		return (
