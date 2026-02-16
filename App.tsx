@@ -30,8 +30,10 @@ import {
 	AccessStatus,
 	Media,
 } from './types'
-import { GamesPage } from './games/ui/GamesPage'
+import { GamesPage } from './src/pages/games/ui/GamesPage'
 import { ProfileDetail } from './src/pages/ProfileDetail'
+import CreatePage from './src/pages/FormPage/CreatePage'
+import EditPage from './src/pages/FormPage/EditPage'
 
 const tg = (window as any).Telegram?.WebApp
 
@@ -206,7 +208,7 @@ const LocationBanner: React.FC = () => {
 // Компонент автокомплита адреса (ИСПОЛЬЗУЕМ МЕТОД ITEMS ВМЕСТО SUGGEST)
 // Компонент автокомплита адреса (С ФИЛЬТРОМ ПО БИШКЕКУ)
 // Компонент автокомплита адреса (OpenStreetMap - Бесплатно, без ключей)
-const AddressAutocomplete2GIS: React.FC<{
+export const AddressAutocomplete2GIS: React.FC<{
 	value: string
 	onChange: (data: {
 		address: string
@@ -1206,584 +1208,584 @@ const SearchResultItem = ({ item, type, onClick }: any) => {
 	)
 }
 
-const CreatePage: React.FC<{ telegramId: number }> = ({ telegramId }) => {
-	const location = useLocation()
-	const navigate = useNavigate()
-	const { type, existingData } = location.state || { type: 'vac' }
-	const { showToast } = useToast()
-	const [loading, setLoading] = useState(false)
-	const [isAiGenerating, setIsAiGenerating] = useState(false)
+// const CreatePage: React.FC<{ telegramId: number }> = ({ telegramId }) => {
+// 	const location = useLocation()
+// 	const navigate = useNavigate()
+// 	const { type, existingData } = location.state || { type: 'vac' }
+// 	const { showToast } = useToast()
+// 	const [loading, setLoading] = useState(false)
+// 	const [isAiGenerating, setIsAiGenerating] = useState(false)
 
-	const [cities, setCities] = useState<City[]>([])
-	const [spheres, setSpheres] = useState<Sphere[]>([])
-	const [categories, setCategories] = useState<Category[]>([])
-	const [subcategories, setSubcategories] = useState<Subcategory[]>([])
+// 	const [cities, setCities] = useState<City[]>([])
+// 	const [spheres, setSpheres] = useState<Sphere[]>([])
+// 	const [categories, setCategories] = useState<Category[]>([])
+// 	const [subcategories, setSubcategories] = useState<Subcategory[]>([])
 
-	const [formData, setFormData] = useState<any>(
-		existingData || {
-			title: '',
-			name: '',
-			description: '',
-			salary: '',
-			cityId: 1,
-			sphereId: 0,
-			categoryId: 0,
-			subcategoryId: 0,
-			phone: '+996',
-			companyName: '',
-			age: 18,
-			gender: 'MALE',
-			experience: 0,
-			experienceInYear: 0,
-			address: '',
-			schedule: '',
-			minAge: 18,
-			maxAge: 45,
-			preferredGender: 'ANY',
-			latitude: null,
-			longitude: null,
-		},
-	)
+// 	const [formData, setFormData] = useState<any>(
+// 		existingData || {
+// 			title: '',
+// 			name: '',
+// 			description: '',
+// 			salary: '',
+// 			cityId: 1,
+// 			sphereId: 0,
+// 			categoryId: 0,
+// 			subcategoryId: 0,
+// 			phone: '+996',
+// 			companyName: '',
+// 			age: 18,
+// 			gender: 'MALE',
+// 			experience: 0,
+// 			experienceInYear: 0,
+// 			address: '',
+// 			schedule: '',
+// 			minAge: 18,
+// 			maxAge: 45,
+// 			preferredGender: 'ANY',
+// 			latitude: null,
+// 			longitude: null,
+// 		},
+// 	)
 
-	const [selectedPhotos, setSelectedPhotos] = useState<File[]>([])
-	const [selectedVideos, setSelectedVideos] = useState<File[]>([])
+// 	const [selectedPhotos, setSelectedPhotos] = useState<File[]>([])
+// 	const [selectedVideos, setSelectedVideos] = useState<File[]>([])
 
-	useEffect(() => {
-		apiService.getCities(telegramId).then(setCities)
-		apiService.getSpheres(telegramId).then(setSpheres)
-	}, [telegramId])
+// 	useEffect(() => {
+// 		apiService.getCities(telegramId).then(setCities)
+// 		apiService.getSpheres(telegramId).then(setSpheres)
+// 	}, [telegramId])
 
-	useEffect(() => {
-		if (formData.sphereId) {
-			apiService
-				.getCategories(telegramId, formData.sphereId)
-				.then(setCategories)
-		}
-	}, [formData.sphereId, telegramId])
+// 	useEffect(() => {
+// 		if (formData.sphereId) {
+// 			apiService
+// 				.getCategories(telegramId, formData.sphereId)
+// 				.then(setCategories)
+// 		}
+// 	}, [formData.sphereId, telegramId])
 
-	useEffect(() => {
-		if (formData.categoryId) {
-			apiService
-				.getSubcategories(telegramId, formData.categoryId)
-				.then(setSubcategories)
-		}
-	}, [formData.categoryId, telegramId])
+// 	useEffect(() => {
+// 		if (formData.categoryId) {
+// 			apiService
+// 				.getSubcategories(telegramId, formData.categoryId)
+// 				.then(setSubcategories)
+// 		}
+// 	}, [formData.categoryId, telegramId])
 
-	const handleAction = async () => {
-		const isVac = type === 'vac' || type === 'job'
-		const isUpdate = !!existingData?.id
-		setLoading(true)
-		try {
-			let resultId: number
-			if (isVac) {
-				const payload = { ...formData, cityId: Number(formData.cityId) }
-				const res = isUpdate
-					? await apiService.updateVacancy(
-							existingData.id,
-							telegramId,
-							payload,
-						)
-					: await apiService.createVacancy(telegramId, payload)
-				resultId = res.id
-			} else {
-				const payload = { ...formData, cityId: Number(formData.cityId) }
-				const res = isUpdate
-					? await apiService.updateResume(
-							existingData.id,
-							telegramId,
-							payload,
-						)
-					: await apiService.createResume(telegramId, payload)
-				resultId = res.id
-			}
+// 	const handleAction = async () => {
+// 		const isVac = type === 'vac' || type === 'job'
+// 		const isUpdate = !!existingData?.id
+// 		setLoading(true)
+// 		try {
+// 			let resultId: number
+// 			if (isVac) {
+// 				const payload = { ...formData, cityId: Number(formData.cityId) }
+// 				const res = isUpdate
+// 					? await apiService.updateVacancy(
+// 							existingData.id,
+// 							telegramId,
+// 							payload,
+// 						)
+// 					: await apiService.createVacancy(telegramId, payload)
+// 				resultId = res.id
+// 			} else {
+// 				const payload = { ...formData, cityId: Number(formData.cityId) }
+// 				const res = isUpdate
+// 					? await apiService.updateResume(
+// 							existingData.id,
+// 							telegramId,
+// 							payload,
+// 						)
+// 					: await apiService.createResume(telegramId, payload)
+// 				resultId = res.id
+// 			}
 
-			// Handle Media Uploads
-			for (const file of selectedPhotos) {
-				if (isVac)
-					await apiService.uploadVacancyPhoto(
-						resultId,
-						telegramId,
-						file,
-					)
-				else
-					await apiService.uploadResumePhoto(
-						resultId,
-						telegramId,
-						file,
-					)
-			}
-			for (const file of selectedVideos) {
-				if (isVac)
-					await apiService.uploadVacancyVideo(
-						resultId,
-						telegramId,
-						file,
-					)
-				else
-					await apiService.uploadResumeVideo(
-						resultId,
-						telegramId,
-						file,
-					)
-			}
+// 			// Handle Media Uploads
+// 			for (const file of selectedPhotos) {
+// 				if (isVac)
+// 					await apiService.uploadVacancyPhoto(
+// 						resultId,
+// 						telegramId,
+// 						file,
+// 					)
+// 				else
+// 					await apiService.uploadResumePhoto(
+// 						resultId,
+// 						telegramId,
+// 						file,
+// 					)
+// 			}
+// 			for (const file of selectedVideos) {
+// 				if (isVac)
+// 					await apiService.uploadVacancyVideo(
+// 						resultId,
+// 						telegramId,
+// 						file,
+// 					)
+// 				else
+// 					await apiService.uploadResumeVideo(
+// 						resultId,
+// 						telegramId,
+// 						file,
+// 					)
+// 			}
 
-			showToast(isUpdate ? 'Успешно обновлено!' : 'Успешно опубликовано!')
-			navigate('/profile')
-		} catch (e) {
-			showToast('Ошибка при сохранении', 'error')
-		} finally {
-			setLoading(false)
-		}
-	}
+// 			showToast(isUpdate ? 'Успешно обновлено!' : 'Успешно опубликовано!')
+// 			navigate('/profile')
+// 		} catch (e) {
+// 			showToast('Ошибка при сохранении', 'error')
+// 		} finally {
+// 			setLoading(false)
+// 		}
+// 	}
 
-	// const handleAiHelp = async () => {
-	// 	setIsAiGenerating(true)
-	// 	try {
-	// 		let result = ''
-	// 		if (type === 'vac' || type === 'job') {
-	// 			result = await geminiService.generateJobDescription(
-	// 				formData.title || 'Сотрудник',
-	// 				formData.companyName || 'Наша компания',
-	// 			)
-	// 		} else {
-	// 			const sphereName =
-	// 				spheres.find(
-	// 					(s) => String(s.id) === String(formData.sphereId),
-	// 				)?.name || 'моей сфере'
-	// 			result = await geminiService.generateResumeSummary(
-	// 				formData.name || 'Соискатель',
-	// 				formData.experience || 0,
-	// 				sphereName,
-	// 			)
-	// 		}
-	// 		setFormData({ ...formData, description: result })
-	// 		showToast('AI помог составить описание! ✨')
-	// 	} catch (e) {
-	// 		showToast('Ошибка AI', 'error')
-	// 	} finally {
-	// 		setIsAiGenerating(false)
-	// 	}
-	// }
+// 	// const handleAiHelp = async () => {
+// 	// 	setIsAiGenerating(true)
+// 	// 	try {
+// 	// 		let result = ''
+// 	// 		if (type === 'vac' || type === 'job') {
+// 	// 			result = await geminiService.generateJobDescription(
+// 	// 				formData.title || 'Сотрудник',
+// 	// 				formData.companyName || 'Наша компания',
+// 	// 			)
+// 	// 		} else {
+// 	// 			const sphereName =
+// 	// 				spheres.find(
+// 	// 					(s) => String(s.id) === String(formData.sphereId),
+// 	// 				)?.name || 'моей сфере'
+// 	// 			result = await geminiService.generateResumeSummary(
+// 	// 				formData.name || 'Соискатель',
+// 	// 				formData.experience || 0,
+// 	// 				sphereName,
+// 	// 			)
+// 	// 		}
+// 	// 		setFormData({ ...formData, description: result })
+// 	// 		showToast('AI помог составить описание! ✨')
+// 	// 	} catch (e) {
+// 	// 		showToast('Ошибка AI', 'error')
+// 	// 	} finally {
+// 	// 		setIsAiGenerating(false)
+// 	// 	}
+// 	// }
 
-	const inputClass =
-		'w-full bg-slate-50 border border-slate-100 h-14 px-6 rounded-2xl text-sm font-bold focus:outline-none ring-2 ring-transparent focus:ring-red-50 transition-all placeholder:text-slate-300 text-slate-900'
+// 	const inputClass =
+// 		'w-full bg-slate-50 border border-slate-100 h-14 px-6 rounded-2xl text-sm font-bold focus:outline-none ring-2 ring-transparent focus:ring-red-50 transition-all placeholder:text-slate-300 text-slate-900'
 
-	return (
-		<div className='bg-white min-h-screen pb-40 animate-in fade-in duration-500'>
-			<header
-				className='p-6 pt-12 flex items-center gap-4 sticky top-0 bg-white/90 backdrop-blur-md z-40 border-b border-slate-100'
-				style={{
-					paddingTop: 'calc(1.5rem + env(safe-area-inset-top))',
-				}}
-			>
-				<button
-					onClick={() => navigate(-1)}
-					className='w-10 h-10 bg-slate-50 rounded-xl flex items-center justify-center text-slate-600'
-				>
-					←
-				</button>
-				<h2 className='text-2xl font-black text-slate-900 leading-tight'>
-					{existingData
-						? 'Редактирование'
-						: type === 'vac'
-							? 'Новая Вакансия'
-							: 'Новое Резюме'}
-				</h2>
-			</header>
+// 	return (
+// 		<div className='bg-white min-h-screen pb-40 animate-in fade-in duration-500'>
+// 			<header
+// 				className='p-6 pt-12 flex items-center gap-4 sticky top-0 bg-white/90 backdrop-blur-md z-40 border-b border-slate-100'
+// 				style={{
+// 					paddingTop: 'calc(1.5rem + env(safe-area-inset-top))',
+// 				}}
+// 			>
+// 				<button
+// 					onClick={() => navigate(-1)}
+// 					className='w-10 h-10 bg-slate-50 rounded-xl flex items-center justify-center text-slate-600'
+// 				>
+// 					←
+// 				</button>
+// 				<h2 className='text-2xl font-black text-slate-900 leading-tight'>
+// 					{existingData
+// 						? 'Редактирование'
+// 						: type === 'vac'
+// 							? 'Новая Вакансия'
+// 							: 'Новое Резюме'}
+// 				</h2>
+// 			</header>
 
-			<div className='px-6 py-6 space-y-6 text-left'>
-				<FormField
-					label={
-						type === 'vac' || type === 'job'
-							? 'Название вакансии'
-							: 'Ваше Имя'
-					}
-				>
-					<input
-						value={
-							type === 'vac' || type === 'job'
-								? formData.title
-								: formData.name
-						}
-						onChange={(e) =>
-							setFormData({
-								...formData,
-								[type === 'vac' || type === 'job'
-									? 'title'
-									: 'name']: e.target.value,
-							})
-						}
-						placeholder='Введите название...'
-						className={inputClass}
-					/>
-				</FormField>
+// 			<div className='px-6 py-6 space-y-6 text-left'>
+// 				<FormField
+// 					label={
+// 						type === 'vac' || type === 'job'
+// 							? 'Название вакансии'
+// 							: 'Ваше Имя'
+// 					}
+// 				>
+// 					<input
+// 						value={
+// 							type === 'vac' || type === 'job'
+// 								? formData.title
+// 								: formData.name
+// 						}
+// 						onChange={(e) =>
+// 							setFormData({
+// 								...formData,
+// 								[type === 'vac' || type === 'job'
+// 									? 'title'
+// 									: 'name']: e.target.value,
+// 							})
+// 						}
+// 						placeholder='Введите название...'
+// 						className={inputClass}
+// 					/>
+// 				</FormField>
 
-				<ElegantSelect
-					label='Город'
-					placeholder='Выберите город'
-					value={formData.cityId}
-					options={cities.map((c) => ({ id: c.id, name: c.name }))}
-					onChange={(id) => setFormData({ ...formData, cityId: id })}
-				/>
+// 				<ElegantSelect
+// 					label='Город'
+// 					placeholder='Выберите город'
+// 					value={formData.cityId}
+// 					options={cities.map((c) => ({ id: c.id, name: c.name }))}
+// 					onChange={(id) => setFormData({ ...formData, cityId: id })}
+// 				/>
 
-				{/* Блок категорий */}
-				<div className='space-y-6 p-6 bg-slate-50 rounded-[2.5rem] border border-slate-100'>
-					<ElegantSelect
-						label='Сфера'
-						placeholder='Выберите сферу'
-						value={formData.sphereId}
-						options={spheres.map((s) => ({
-							id: s.id,
-							name: s.name,
-						}))}
-						onChange={(id) =>
-							setFormData({
-								...formData,
-								sphereId: id,
-								categoryId: 0,
-								subcategoryId: 0,
-							})
-						}
-					/>
-					{formData.sphereId > 0 && (
-						<ElegantSelect
-							label='Категория'
-							placeholder='Выберите категорию'
-							value={formData.categoryId}
-							options={categories.map((c) => ({
-								id: c.id,
-								name: c.name,
-							}))}
-							onChange={(id) =>
-								setFormData({
-									...formData,
-									categoryId: id,
-									subcategoryId: 0,
-								})
-							}
-						/>
-					)}
-					{formData.categoryId > 0 && subcategories.length > 0 && (
-						<ElegantSelect
-							label='Подкатегория'
-							placeholder='Выберите подкатегорию'
-							value={formData.subcategoryId}
-							options={subcategories.map((s) => ({
-								id: s.id,
-								name: s.name,
-							}))}
-							onChange={(id) =>
-								setFormData({ ...formData, subcategoryId: id })
-							}
-						/>
-					)}
-				</div>
+// 				{/* Блок категорий */}
+// 				<div className='space-y-6 p-6 bg-slate-50 rounded-[2.5rem] border border-slate-100'>
+// 					<ElegantSelect
+// 						label='Сфера'
+// 						placeholder='Выберите сферу'
+// 						value={formData.sphereId}
+// 						options={spheres.map((s) => ({
+// 							id: s.id,
+// 							name: s.name,
+// 						}))}
+// 						onChange={(id) =>
+// 							setFormData({
+// 								...formData,
+// 								sphereId: id,
+// 								categoryId: 0,
+// 								subcategoryId: 0,
+// 							})
+// 						}
+// 					/>
+// 					{formData.sphereId > 0 && (
+// 						<ElegantSelect
+// 							label='Категория'
+// 							placeholder='Выберите категорию'
+// 							value={formData.categoryId}
+// 							options={categories.map((c) => ({
+// 								id: c.id,
+// 								name: c.name,
+// 							}))}
+// 							onChange={(id) =>
+// 								setFormData({
+// 									...formData,
+// 									categoryId: id,
+// 									subcategoryId: 0,
+// 								})
+// 							}
+// 						/>
+// 					)}
+// 					{formData.categoryId > 0 && subcategories.length > 0 && (
+// 						<ElegantSelect
+// 							label='Подкатегория'
+// 							placeholder='Выберите подкатегорию'
+// 							value={formData.subcategoryId}
+// 							options={subcategories.map((s) => ({
+// 								id: s.id,
+// 								name: s.name,
+// 							}))}
+// 							onChange={(id) =>
+// 								setFormData({ ...formData, subcategoryId: id })
+// 							}
+// 						/>
+// 					)}
+// 				</div>
 
-				<div className='space-y-6'>
-					{/* Блок загрузки фото/видео */}
-					<div className='space-y-4'>
-						<FormField label='Фото (JPG, PNG, max 10MB)'>
-							<input
-								type='file'
-								accept='image/*'
-								multiple
-								onChange={(e) =>
-									e.target.files &&
-									setSelectedPhotos([
-										...selectedPhotos,
-										...Array.from(e.target.files),
-									])
-								}
-								className='hidden'
-								id='photo-upload'
-							/>
-							<label
-								htmlFor='photo-upload'
-								className='w-full h-14 bg-slate-900 text-white rounded-2xl flex items-center justify-center gap-2 cursor-pointer shadow-lg active:scale-95 transition-all'
-							>
-								<span>Выбрать фото</span>
-								<span className='bg-white/20 px-2 py-0.5 rounded text-[10px]'>
-									{selectedPhotos.length}
-								</span>
-							</label>
-							<div className='flex gap-3 overflow-x-auto no-scrollbar py-2'>
-								{selectedPhotos.map((file, i) => (
-									<div
-										key={i}
-										className='relative shrink-0 w-20 h-20 rounded-2xl overflow-hidden border border-slate-100'
-									>
-										<img
-											src={URL.createObjectURL(file)}
-											className='w-full h-full object-cover'
-											alt='preview'
-										/>
-										<button
-											onClick={() =>
-												setSelectedPhotos(
-													selectedPhotos.filter(
-														(_, idx) => idx !== i,
-													),
-												)
-											}
-											className='absolute top-1 right-1 w-5 h-5 bg-red-600 text-white rounded-full text-[10px]'
-										>
-											×
-										</button>
-									</div>
-								))}
-							</div>
-						</FormField>
+// 				<div className='space-y-6'>
+// 					{/* Блок загрузки фото/видео */}
+// 					<div className='space-y-4'>
+// 						<FormField label='Фото (JPG, PNG, max 10MB)'>
+// 							<input
+// 								type='file'
+// 								accept='image/*'
+// 								multiple
+// 								onChange={(e) =>
+// 									e.target.files &&
+// 									setSelectedPhotos([
+// 										...selectedPhotos,
+// 										...Array.from(e.target.files),
+// 									])
+// 								}
+// 								className='hidden'
+// 								id='photo-upload'
+// 							/>
+// 							<label
+// 								htmlFor='photo-upload'
+// 								className='w-full h-14 bg-slate-900 text-white rounded-2xl flex items-center justify-center gap-2 cursor-pointer shadow-lg active:scale-95 transition-all'
+// 							>
+// 								<span>Выбрать фото</span>
+// 								<span className='bg-white/20 px-2 py-0.5 rounded text-[10px]'>
+// 									{selectedPhotos.length}
+// 								</span>
+// 							</label>
+// 							<div className='flex gap-3 overflow-x-auto no-scrollbar py-2'>
+// 								{selectedPhotos.map((file, i) => (
+// 									<div
+// 										key={i}
+// 										className='relative shrink-0 w-20 h-20 rounded-2xl overflow-hidden border border-slate-100'
+// 									>
+// 										<img
+// 											src={URL.createObjectURL(file)}
+// 											className='w-full h-full object-cover'
+// 											alt='preview'
+// 										/>
+// 										<button
+// 											onClick={() =>
+// 												setSelectedPhotos(
+// 													selectedPhotos.filter(
+// 														(_, idx) => idx !== i,
+// 													),
+// 												)
+// 											}
+// 											className='absolute top-1 right-1 w-5 h-5 bg-red-600 text-white rounded-full text-[10px]'
+// 										>
+// 											×
+// 										</button>
+// 									</div>
+// 								))}
+// 							</div>
+// 						</FormField>
 
-						<FormField label='Видео (MP4, max 100MB)'>
-							<input
-								type='file'
-								accept='video/*'
-								multiple
-								onChange={(e) =>
-									e.target.files &&
-									setSelectedVideos([
-										...selectedVideos,
-										...Array.from(e.target.files),
-									])
-								}
-								className='hidden'
-								id='video-upload'
-							/>
-							<label
-								htmlFor='video-upload'
-								className='w-full h-14 bg-slate-100 text-slate-900 rounded-2xl flex items-center justify-center gap-2 cursor-pointer shadow-sm active:scale-95 transition-all border border-slate-200'
-							>
-								<span>Выбрать видео</span>
-								<span className='bg-slate-900/10 px-2 py-0.5 rounded text-[10px]'>
-									{selectedVideos.length}
-								</span>
-							</label>
-						</FormField>
-					</div>
-				</div>
+// 						<FormField label='Видео (MP4, max 100MB)'>
+// 							<input
+// 								type='file'
+// 								accept='video/*'
+// 								multiple
+// 								onChange={(e) =>
+// 									e.target.files &&
+// 									setSelectedVideos([
+// 										...selectedVideos,
+// 										...Array.from(e.target.files),
+// 									])
+// 								}
+// 								className='hidden'
+// 								id='video-upload'
+// 							/>
+// 							<label
+// 								htmlFor='video-upload'
+// 								className='w-full h-14 bg-slate-100 text-slate-900 rounded-2xl flex items-center justify-center gap-2 cursor-pointer shadow-sm active:scale-95 transition-all border border-slate-200'
+// 							>
+// 								<span>Выбрать видео</span>
+// 								<span className='bg-slate-900/10 px-2 py-0.5 rounded text-[10px]'>
+// 									{selectedVideos.length}
+// 								</span>
+// 							</label>
+// 						</FormField>
+// 					</div>
+// 				</div>
 
-				{type === 'vac' || type === 'job' ? (
-					<>
-						{/* --- НОВЫЕ ПОЛЯ ДЛЯ ВАКАНСИИ НАЧАЛО --- */}
-						<div className='grid grid-cols-2 gap-4'>
-							<FormField label='Мин. возраст'>
-								<input
-									type='number'
-									value={formData.minAge}
-									onChange={(e) =>
-										setFormData({
-											...formData,
-											minAge: e.target.value,
-										})
-									}
-									placeholder='18'
-									className={inputClass}
-								/>
-							</FormField>
-							<FormField label='Макс. возраст'>
-								<input
-									type='number'
-									value={formData.maxAge}
-									onChange={(e) =>
-										setFormData({
-											...formData,
-											maxAge: e.target.value,
-										})
-									}
-									placeholder='45'
-									className={inputClass}
-								/>
-							</FormField>
-						</div>
+// 				{type === 'vac' || type === 'job' ? (
+// 					<>
+// 						{/* --- НОВЫЕ ПОЛЯ ДЛЯ ВАКАНСИИ НАЧАЛО --- */}
+// 						<div className='grid grid-cols-2 gap-4'>
+// 							<FormField label='Мин. возраст'>
+// 								<input
+// 									type='number'
+// 									value={formData.minAge}
+// 									onChange={(e) =>
+// 										setFormData({
+// 											...formData,
+// 											minAge: e.target.value,
+// 										})
+// 									}
+// 									placeholder='18'
+// 									className={inputClass}
+// 								/>
+// 							</FormField>
+// 							<FormField label='Макс. возраст'>
+// 								<input
+// 									type='number'
+// 									value={formData.maxAge}
+// 									onChange={(e) =>
+// 										setFormData({
+// 											...formData,
+// 											maxAge: e.target.value,
+// 										})
+// 									}
+// 									placeholder='45'
+// 									className={inputClass}
+// 								/>
+// 							</FormField>
+// 						</div>
 
-						<ElegantSelect
-							label='Кого вы ищете? (Пол)'
-							placeholder='Выберите пол кандидата'
-							value={formData.preferredGender}
-							options={[
-								{
-									id: 'ANY',
-									name: 'Не имеет значения',
-									icon: '👥',
-								},
-								{ id: 'MALE', name: 'Мужской', icon: '👨' },
-								{ id: 'FEMALE', name: 'Женский', icon: '👩' },
-							]}
-							onChange={(id) =>
-								setFormData({
-									...formData,
-									preferredGender: id,
-								})
-							}
-						/>
+// 						<ElegantSelect
+// 							label='Кого вы ищете? (Пол)'
+// 							placeholder='Выберите пол кандидата'
+// 							value={formData.preferredGender}
+// 							options={[
+// 								{
+// 									id: 'ANY',
+// 									name: 'Не имеет значения',
+// 									icon: '👥',
+// 								},
+// 								{ id: 'MALE', name: 'Мужской', icon: '👨' },
+// 								{ id: 'FEMALE', name: 'Женский', icon: '👩' },
+// 							]}
+// 							onChange={(id) =>
+// 								setFormData({
+// 									...formData,
+// 									preferredGender: id,
+// 								})
+// 							}
+// 						/>
 
-						<FormField label='График работы'>
-							<input
-								value={formData.schedule}
-								onChange={(e) =>
-									setFormData({
-										...formData,
-										schedule: e.target.value,
-									})
-								}
-								placeholder='5/2, с 09:00 до 18:00'
-								className={inputClass}
-							/>
-						</FormField>
-						{/* --- НОВЫЕ ПОЛЯ ДЛЯ ВАКАНСИИ КОНЕЦ --- */}
+// 						<FormField label='График работы'>
+// 							<input
+// 								value={formData.schedule}
+// 								onChange={(e) =>
+// 									setFormData({
+// 										...formData,
+// 										schedule: e.target.value,
+// 									})
+// 								}
+// 								placeholder='5/2, с 09:00 до 18:00'
+// 								className={inputClass}
+// 							/>
+// 						</FormField>
+// 						{/* --- НОВЫЕ ПОЛЯ ДЛЯ ВАКАНСИИ КОНЕЦ --- */}
 
-						<div className='grid grid-cols-2 gap-4'>
-							<FormField label='Зарплата'>
-								<input
-									value={formData.salary}
-									onChange={(e) =>
-										setFormData({
-											...formData,
-											salary: e.target.value,
-										})
-									}
-									placeholder='80 000 сом'
-									className={inputClass}
-								/>
-							</FormField>
-							<FormField label='Опыт (лет)'>
-								<input
-									type='number'
-									value={formData.experienceInYear}
-									onChange={(e) =>
-										setFormData({
-											...formData,
-											experienceInYear: e.target.value,
-										})
-									}
-									className={inputClass}
-								/>
-							</FormField>
-						</div>
-						<FormField label='Компания'>
-							<input
-								value={formData.companyName}
-								onChange={(e) =>
-									setFormData({
-										...formData,
-										companyName: e.target.value,
-									})
-								}
-								placeholder='WORK KG'
-								className={inputClass}
-							/>
-						</FormField>
+// 						<div className='grid grid-cols-2 gap-4'>
+// 							<FormField label='Зарплата'>
+// 								<input
+// 									value={formData.salary}
+// 									onChange={(e) =>
+// 										setFormData({
+// 											...formData,
+// 											salary: e.target.value,
+// 										})
+// 									}
+// 									placeholder='80 000 сом'
+// 									className={inputClass}
+// 								/>
+// 							</FormField>
+// 							<FormField label='Опыт (лет)'>
+// 								<input
+// 									type='number'
+// 									value={formData.experienceInYear}
+// 									onChange={(e) =>
+// 										setFormData({
+// 											...formData,
+// 											experienceInYear: e.target.value,
+// 										})
+// 									}
+// 									className={inputClass}
+// 								/>
+// 							</FormField>
+// 						</div>
+// 						<FormField label='Компания'>
+// 							<input
+// 								value={formData.companyName}
+// 								onChange={(e) =>
+// 									setFormData({
+// 										...formData,
+// 										companyName: e.target.value,
+// 									})
+// 								}
+// 								placeholder='WORK KG'
+// 								className={inputClass}
+// 							/>
+// 						</FormField>
 
-						{/* ИНТЕГРАЦИЯ 2GIS */}
-						<AddressAutocomplete2GIS
-							value={formData.address || ''}
-							onChange={(data) =>
-								setFormData({
-									...formData,
-									address: data.address,
-									latitude: data.lat,
-									longitude: data.lng,
-								})
-							}
-						/>
+// 						{/* ИНТЕГРАЦИЯ 2GIS */}
+// 						<AddressAutocomplete2GIS
+// 							value={formData.address || ''}
+// 							onChange={(data) =>
+// 								setFormData({
+// 									...formData,
+// 									address: data.address,
+// 									latitude: data.lat,
+// 									longitude: data.lng,
+// 								})
+// 							}
+// 						/>
 
-						<FormField label='Телефон / TG'>
-							<input
-								value={formData.phone}
-								onChange={(e) =>
-									setFormData({
-										...formData,
-										phone: formatPhoneKG(e.target.value),
-									})
-								}
-								placeholder='+996'
-								className={inputClass}
-							/>
-						</FormField>
-					</>
-				) : (
-					// БЛОК ДЛЯ РЕЗЮМЕ
-					<>
-						<div className='grid grid-cols-2 gap-4'>
-							<FormField label='Возраст'>
-								<input
-									type='number'
-									value={formData.age}
-									onChange={(e) =>
-										setFormData({
-											...formData,
-											age: e.target.value,
-										})
-									}
-									className={inputClass}
-								/>
-							</FormField>
-							<FormField label='Опыт (лет)'>
-								<input
-									type='number'
-									value={formData.experience}
-									onChange={(e) =>
-										setFormData({
-											...formData,
-											experience: e.target.value,
-										})
-									}
-									className={inputClass}
-								/>
-							</FormField>
-						</div>
-						<ElegantSelect
-							label='Пол'
-							placeholder='Выберите пол'
-							value={formData.gender}
-							options={[
-								{ id: 'MALE', name: 'Мужской', icon: '👨' },
-								{ id: 'FEMALE', name: 'Женский', icon: '👩' },
-							]}
-							onChange={(id) =>
-								setFormData({ ...formData, gender: id })
-							}
-						/>
-					</>
-				)}
+// 						<FormField label='Телефон / TG'>
+// 							<input
+// 								value={formData.phone}
+// 								onChange={(e) =>
+// 									setFormData({
+// 										...formData,
+// 										phone: formatPhoneKG(e.target.value),
+// 									})
+// 								}
+// 								placeholder='+996'
+// 								className={inputClass}
+// 							/>
+// 						</FormField>
+// 					</>
+// 				) : (
+// 					// БЛОК ДЛЯ РЕЗЮМЕ
+// 					<>
+// 						<div className='grid grid-cols-2 gap-4'>
+// 							<FormField label='Возраст'>
+// 								<input
+// 									type='number'
+// 									value={formData.age}
+// 									onChange={(e) =>
+// 										setFormData({
+// 											...formData,
+// 											age: e.target.value,
+// 										})
+// 									}
+// 									className={inputClass}
+// 								/>
+// 							</FormField>
+// 							<FormField label='Опыт (лет)'>
+// 								<input
+// 									type='number'
+// 									value={formData.experience}
+// 									onChange={(e) =>
+// 										setFormData({
+// 											...formData,
+// 											experience: e.target.value,
+// 										})
+// 									}
+// 									className={inputClass}
+// 								/>
+// 							</FormField>
+// 						</div>
+// 						<ElegantSelect
+// 							label='Пол'
+// 							placeholder='Выберите пол'
+// 							value={formData.gender}
+// 							options={[
+// 								{ id: 'MALE', name: 'Мужской', icon: '👨' },
+// 								{ id: 'FEMALE', name: 'Женский', icon: '👩' },
+// 							]}
+// 							onChange={(id) =>
+// 								setFormData({ ...formData, gender: id })
+// 							}
+// 						/>
+// 					</>
+// 				)}
 
-				<FormField label='Описание'>
-					<div className='relative'>
-						<textarea
-							value={formData.description}
-							onChange={(e) =>
-								setFormData({
-									...formData,
-									description: e.target.value,
-								})
-							}
-							className='w-full bg-slate-50 border border-slate-100 min-h-[160px] p-6 rounded-3xl text-sm font-medium focus:outline-none resize-none ring-2 ring-transparent focus:ring-red-50 transition-all'
-						/>
-						{/* <button
-							onClick={handleAiHelp}
-							disabled={isAiGenerating}
-							className='absolute bottom-4 right-4 bg-slate-900 text-white px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg active:scale-95 disabled:opacity-50'
-						>
-							{isAiGenerating ? '...' : 'AI Помощь ✨'}
-						</button> */}
-					</div>
-				</FormField>
+// 				<FormField label='Описание'>
+// 					<div className='relative'>
+// 						<textarea
+// 							value={formData.description}
+// 							onChange={(e) =>
+// 								setFormData({
+// 									...formData,
+// 									description: e.target.value,
+// 								})
+// 							}
+// 							className='w-full bg-slate-50 border border-slate-100 min-h-[160px] p-6 rounded-3xl text-sm font-medium focus:outline-none resize-none ring-2 ring-transparent focus:ring-red-50 transition-all'
+// 						/>
+// 						{/* <button
+// 							onClick={handleAiHelp}
+// 							disabled={isAiGenerating}
+// 							className='absolute bottom-4 right-4 bg-slate-900 text-white px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg active:scale-95 disabled:opacity-50'
+// 						>
+// 							{isAiGenerating ? '...' : 'AI Помощь ✨'}
+// 						</button> */}
+// 					</div>
+// 				</FormField>
 
-				<button
-					onClick={handleAction}
-					disabled={loading}
-					className='w-full py-6 bg-slate-900 text-white rounded-[2rem] font-black uppercase text-xs tracking-widest shadow-xl active:scale-[0.98] transition-all'
-				>
-					{loading
-						? 'Загрузка...'
-						: existingData
-							? 'Сохранить изменения'
-							: 'Опубликовать'}
-				</button>
-			</div>
-		</div>
-	)
-}
+// 				<button
+// 					onClick={handleAction}
+// 					disabled={loading}
+// 					className='w-full py-6 bg-slate-900 text-white rounded-[2rem] font-black uppercase text-xs tracking-widest shadow-xl active:scale-[0.98] transition-all'
+// 				>
+// 					{loading
+// 						? 'Загрузка...'
+// 						: existingData
+// 							? 'Сохранить изменения'
+// 							: 'Опубликовать'}
+// 				</button>
+// 			</div>
+// 		</div>
+// 	)
+// }
 
 const ProfilePage: React.FC<{ telegramId: number; user: User | null }> = ({
 	telegramId,
@@ -1863,11 +1865,8 @@ const ProfilePage: React.FC<{ telegramId: number; user: User | null }> = ({
 				</div>
 				<button
 					onClick={() =>
-						navigate('/create', {
-							state: {
-								type: type === 'res' ? 'res' : 'vac',
-								existingData: item,
-							},
+						navigate('/edit', {
+							state: { type: 'res', existingData: item },
 						})
 					}
 					className='w-10 h-10 flex items-center justify-center bg-slate-50 rounded-xl transition-colors'
@@ -3316,6 +3315,11 @@ const AppContent: React.FC = () => {
 					<Route
 						path='/create'
 						element={<CreatePage telegramId={telegramId} />}
+					/>
+
+					<Route
+						path='/edit'
+						element={<EditPage telegramId={telegramId} />}
 					/>
 					<Route
 						path='/profile'
