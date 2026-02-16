@@ -546,13 +546,43 @@ const FormField: React.FC<{ label: string; children: React.ReactNode }> = ({
 
 const HomePage: React.FC<{ user: User | null }> = ({ user }) => {
 	const navigate = useNavigate()
+
 	const spheres = [
-		{ id: 1, name: 'IT', icon: '💻' },
-		{ id: 2, name: 'Horeca', icon: '☕️' },
-		{ id: 3, name: 'Магазины', icon: '🏪' },
-		{ id: 4, name: 'Логистика', icon: '🚚' },
-		{ id: 5, name: 'Ремонт', icon: '🛠' },
-		{ id: 6, name: 'Бьюти', icon: '💅' },
+		{
+			id: 1,
+			name: 'IT-сфера',
+			icon: '💻',
+		},
+		{
+			id: 2,
+			name: 'Продажи',
+			icon: '🏪',
+		},
+		{
+			id: 3,
+			name: 'Строительство',
+			icon: '🏗',
+		},
+		{
+			id: 4,
+			name: 'Маркетинг',
+			icon: '📈',
+		},
+		{
+			id: 5,
+			name: 'Швейная отрасль',
+			icon: '🧵',
+		},
+		{
+			id: 6,
+			name: 'Логистика',
+			icon: '🚚',
+		},
+		{
+			id: 7,
+			name: 'Общепит',
+			icon: '☕️',
+		},
 	]
 
 	return (
@@ -2124,7 +2154,16 @@ const DetailPage: React.FC<{ telegramId: number }> = ({ telegramId }) => {
 		}
 	}
 
-	const isLocked = item?.phone ? String(item.phone).includes('*') : false
+	const isLocked = useMemo(() => {
+		// Если данных еще нет, не блокируем (чтобы не моргало)
+		if (!item?.phone) return false
+
+		// Если бэкенд прислал флаг, что это бесплатно — открываем сразу
+		if (item.isFree === true) return false
+
+		// В остальных случаях проверяем маску (звездочки)
+		return String(item.phone).includes('*')
+	}, [item?.phone, item?.isFree])
 
 	if (loading)
 		return (
