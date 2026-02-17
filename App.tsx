@@ -923,6 +923,7 @@ const SearchPage: React.FC<{ telegramId: number }> = ({ telegramId }) => {
 
 	// --- 7. ПОИСК ---
 	const handleSearch = useCallback(async () => {
+		setResults([])
 		setLoading(true)
 		try {
 			const res: any[] =
@@ -965,11 +966,9 @@ const SearchPage: React.FC<{ telegramId: number }> = ({ telegramId }) => {
 
 	// Запуск поиска при изменении фильтров
 	useEffect(() => {
-		// Небольшая задержка (debounce) для ввода текста, если query используется
-		const timer = setTimeout(() => {
-			handleSearch()
-		}, 300)
-		return () => clearTimeout(timer)
+		// Небольшая задержка (
+		// debounce) для ввода текста, если query используется
+		handleSearch()
 	}, [handleSearch])
 
 	return (
@@ -1089,7 +1088,7 @@ const SearchPage: React.FC<{ telegramId: number }> = ({ telegramId }) => {
 							onClick={(stats: any) =>
 								// Передаем текущий URL в state, если нужно будет вернуться именно сюда
 								// Хотя searchParams и так сохранят всё в истории браузера
-								navigate('/detail', {
+								navigate(`/detail/${item.id}`, {
 									state: {
 										type: type === 'job' ? 'job' : 'worker',
 										data: item,
