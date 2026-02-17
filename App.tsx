@@ -15,25 +15,45 @@ import {
 	Navigate,
 	useSearchParams,
 } from 'react-router-dom'
-import { apiService } from './apiService'
-import { geminiService } from './geminiService'
-import { LOCALES, BANK_SERVICES, formatPhoneKG, formatDate } from './constants'
-import {
-	User,
-	Resume,
-	Vacancy,
-	City,
-	Sphere,
-	Category,
-	Subcategory,
-	ReferralInfo,
-	AccessStatus,
-	Media,
-} from './types'
+import { BANK_SERVICES, formatPhoneKG, formatDate } from './constants'
+import { User, Media } from './types'
 import { GamesPage } from './src/pages/games/ui/GamesPage'
 import { ProfileDetail } from './src/pages/ProfileDetail'
 import CreatePage from './src/pages/FormPage/CreatePage'
 import EditPage from './src/pages/FormPage/EditPage'
+
+import {
+	useCreatePaymentMutation,
+	useDeleteResumeMutation,
+	useDeleteVacancyMutation,
+	useUpdateResumeStatusMutation,
+	useUpdateVacancyStatusMutation,
+	useWithdrawPointsMutation,
+} from './src/store/store'
+import {
+	useGetUserQuery,
+	useRegisterUserMutation,
+	useGetCitiesQuery,
+	useGetSpheresQuery,
+	useGetCategoriesQuery,
+	useGetSubcategoriesQuery,
+	useSearchVacanciesQuery,
+	useSearchResumesQuery,
+	useGetRecommendedVacanciesQuery,
+	useGetUserVacanciesQuery,
+	useGetUserResumesQuery,
+	useGetVacancyDetailQuery,
+	useGetResumeDetailQuery,
+	useGetVacancyStatsQuery,
+	useGetResumeStatsQuery,
+	useTrackContactClickMutation,
+	useTrackViewMutation,
+	useGetSubscriptionStatusQuery,
+	useGetReferralInfoQuery,
+	useCheckSocialTaskQuery,
+	useBoostVacancyMutation,
+	useBoostResumeMutation,
+} from './src/store/store'
 
 const tg = (window as any).Telegram?.WebApp
 
@@ -545,47 +565,22 @@ const FormField: React.FC<{ label: string; children: React.ReactNode }> = ({
 )
 
 // --- PAGES ---
-
 const HomePage: React.FC<{ user: User | null }> = ({ user }) => {
 	const navigate = useNavigate()
-	const [recommendations, setRecommendations] = useState<any[]>([])
-	const [loading, setLoading] = useState(true)
-	const telegramId = user?.telegramId
+	const telegramId = user?.telegramId || 0
 
-	// 1. Загрузка данных из API
-	useEffect(() => {
-		const fetchRecommended = async () => {
-			try {
-				// Используем метод, который мы добавили в apiService
-				const data = await apiService.getRecommendedVacancies(
-					telegramId,
-					10,
-				)
-				setRecommendations(data)
-			} catch (error) {
-				console.error('Ошибка при загрузке рекомендаций:', error)
-			} finally {
-				setLoading(false)
-			}
-		}
+	// RTK Query вместо useEffect
+	const { data: recommendations = [], isLoading } =
+		useGetRecommendedVacanciesQuery(
+			{ tid: telegramId, limit: 10 },
+			{ skip: !telegramId },
+		)
 
-		fetchRecommended()
-	}, [telegramId])
-
-	// 2. Форматирование зарплаты (Договорная vs Число)
 	const renderSalary = (salary: string) => {
 		if (!salary || salary.trim() === '') return 'ЗП не указана'
-
 		const s = String(salary).trim()
-		const hasLetters = /[а-яА-Яa-zA-Z]/.test(s)
-
-		if (hasLetters) {
-			return s // Вернет "Договорная" или "Сдельная"
-		} else {
-			// Превратит "50000" в "50 000 сом"
-			const formatted = s.replace(/\B(?=(\d{3})+(?!\d))/g, ' ')
-			return `${formatted} сом`
-		}
+		if (/[а-яА-Яa-zA-Z]/.test(s)) return s
+		return `${s.replace(/\B(?=(\d{3})+(?!\d))/g, ' ')} сом`
 	}
 
 	const spheres = [
@@ -600,75 +595,64 @@ const HomePage: React.FC<{ user: User | null }> = ({ user }) => {
 
 	return (
 		<div className='pb-40 animate-in fade-in duration-500 bg-white min-h-screen main-content-offset'>
-			{/* HEADER */}
 			<header className='px-6 pb-4 flex items-center justify-between sticky top-0 bg-white/90 backdrop-blur-md z-40 border-b border-slate-50'>
 				<Logo />
-				<div className='flex items-center gap-2'>
-					<button className='w-10 h-10 bg-slate-50 flex items-center justify-center rounded-xl relative active:scale-95 transition-transform'>
-						<BellIcon />
-						<div className='absolute top-3 right-3 w-1.5 h-1.5 bg-red-700 rounded-full border border-white'></div>
-					</button>
-				</div>
+				<button className='w-10 h-10 bg-slate-50 flex items-center justify-center rounded-xl relative active:scale-95 transition-transform'>
+					<BellIcon />
+					<div className='absolute top-3 right-3 w-1.5 h-1.5 bg-red-700 rounded-full border border-white'></div>
+				</button>
 			</header>
 
 			<LocationBanner />
 
-			{/* ACTION BUTTONS */}
-			<div className='px-6 mt-6 space-y-4'>
+			<div className='px-6 mt-6 space-y-4 text-left'>
 				<div
 					onClick={() =>
 						navigate('/create', { state: { type: 'res' } })
 					}
-					className='brand-gradient p-6 rounded-[2rem] text-white shadow-xl brand-shadow active:scale-[0.98] transition-all relative overflow-hidden'
+					className='brand-gradient p-6 rounded-[2rem] text-white shadow-xl brand-shadow active:scale-[0.98] transition-all relative overflow-hidden cursor-pointer'
 				>
 					<div className='absolute -right-4 -bottom-4 w-24 h-24 bg-white/10 rounded-full blur-2xl'></div>
-					<div className='relative z-10 text-left'>
-						<h3 className='text-xl font-black uppercase tracking-tight'>
-							Начни поиск 🚀
-						</h3>
-						<p className='text-[11px] text-slate-200 font-bold uppercase mt-1'>
-							Создай резюме за 60 секунд
-						</p>
-					</div>
+					<h3 className='text-xl font-black uppercase tracking-tight'>
+						Начни поиск 🚀
+					</h3>
+					<p className='text-[11px] text-slate-200 font-bold uppercase mt-1'>
+						Создай резюме за 60 секунд
+					</p>
 				</div>
 
 				<div className='grid grid-cols-2 gap-4'>
 					<div
 						onClick={() => navigate('/games')}
-						className='bg-indigo-600 p-5 rounded-[2rem] text-white shadow-lg active:scale-[0.97] transition-all relative overflow-hidden h-32 flex flex-col justify-end'
+						className='bg-indigo-600 p-5 rounded-[2rem] text-white shadow-lg h-32 flex flex-col justify-end relative overflow-hidden cursor-pointer active:scale-95 transition-all'
 					>
 						<div className='absolute -right-2 -top-2 text-4xl opacity-20'>
 							🎮
 						</div>
-						<div className='relative z-10 text-left'>
-							<h4 className='font-black text-sm uppercase'>
-								PLAY ZONE
-							</h4>
-							<p className='text-[9px] text-indigo-100 font-bold uppercase'>
-								Отдохни
-							</p>
-						</div>
+						<h4 className='font-black text-sm uppercase'>
+							PLAY ZONE
+						</h4>
+						<p className='text-[9px] text-indigo-100 font-bold uppercase'>
+							Отдохни
+						</p>
 					</div>
 					<div
 						onClick={() => navigate('/subscription')}
-						className='bg-[#111111] p-5 rounded-[2rem] text-white shadow-lg active:scale-[0.97] transition-all relative overflow-hidden h-32 flex flex-col justify-end'
+						className='bg-[#111111] p-5 rounded-[2rem] text-white shadow-lg h-32 flex flex-col justify-end relative overflow-hidden cursor-pointer active:scale-95 transition-all'
 					>
 						<div className='absolute -right-2 -top-2 text-4xl opacity-20'>
 							💎
 						</div>
-						<div className='relative z-10 text-left'>
-							<h4 className='font-black text-sm uppercase'>
-								PRO ДОСТУП
-							</h4>
-							<p className='text-[9px] text-slate-400 font-bold uppercase'>
-								Контакты
-							</p>
-						</div>
+						<h4 className='font-black text-sm uppercase'>
+							PRO ДОСТУП
+						</h4>
+						<p className='text-[9px] text-slate-400 font-bold uppercase'>
+							Контакты
+						</p>
 					</div>
 				</div>
 			</div>
 
-			{/* SPHERES HORIZONTAL SCROLL */}
 			<div className='overflow-x-auto no-scrollbar flex gap-4 px-6 mb-8 mt-8'>
 				{spheres.map((s) => (
 					<div
@@ -688,7 +672,6 @@ const HomePage: React.FC<{ user: User | null }> = ({ user }) => {
 				))}
 			</div>
 
-			{/* RECOMMENDATIONS SECTION */}
 			<div className='px-6 space-y-6'>
 				<div className='flex justify-between items-center'>
 					<h3 className='text-lg font-black text-slate-900'>
@@ -702,7 +685,7 @@ const HomePage: React.FC<{ user: User | null }> = ({ user }) => {
 					</button>
 				</div>
 
-				{loading ? (
+				{isLoading ? (
 					<div className='flex flex-col items-center py-10 gap-2'>
 						<div className='w-8 h-8 border-4 border-slate-100 border-t-red-700 rounded-full animate-spin' />
 						<span className='text-[10px] font-bold text-slate-400 uppercase'>
@@ -722,19 +705,17 @@ const HomePage: React.FC<{ user: User | null }> = ({ user }) => {
 								className='bg-white border border-slate-100 p-5 rounded-[2rem] shadow-sm flex items-center gap-4 active:scale-[0.98] active:bg-slate-50 transition-all'
 							>
 								<div className='w-16 h-16 bg-slate-50 rounded-2xl flex-shrink-0 flex items-center justify-center text-2xl overflow-hidden border border-slate-50'>
-									{vacancy.media &&
-									vacancy.media.length > 0 ? (
+									{vacancy.media?.[0] ? (
 										<img
 											src={vacancy.media[0].fileUrl}
 											className='w-full h-full object-cover'
-											alt='job'
+											alt=''
 										/>
 									) : (
 										'💼'
 									)}
 								</div>
-
-								<div className='flex-1 min-w-0'>
+								<div className='flex-1 min-w-0 text-left'>
 									<h4 className='font-black text-slate-900 leading-tight truncate'>
 										{vacancy.title}
 									</h4>
@@ -743,23 +724,11 @@ const HomePage: React.FC<{ user: User | null }> = ({ user }) => {
 										• {vacancy.cityName}
 									</p>
 								</div>
-
-								{/* Зарплата */}
-								<div className='text-right flex-shrink-0'>
-									<div className='text-[12px] font-black text-red-700 leading-none'>
-										{renderSalary(vacancy.salary)}
-									</div>
+								<div className='text-right flex-shrink-0 text-[12px] font-black text-red-700'>
+									{renderSalary(vacancy.salary)}
 								</div>
 							</div>
 						))}
-					</div>
-				)}
-
-				{!loading && recommendations.length === 0 && (
-					<div className='text-center py-10'>
-						<p className='text-slate-400 font-bold text-sm'>
-							Пока ничего не нашлось
-						</p>
 					</div>
 				)}
 			</div>
@@ -768,218 +737,93 @@ const HomePage: React.FC<{ user: User | null }> = ({ user }) => {
 }
 
 const SearchPage: React.FC<{ telegramId: number }> = ({ telegramId }) => {
-	const location = useLocation()
 	const navigate = useNavigate()
+	const location = useLocation()
 	const [searchParams, setSearchParams] = useSearchParams()
-	const { showToast } = useToast()
-
-	// Данные из location.state (если переход был по кнопкам категорий с главной)
-	const s = location.state || {}
-
-	// --- 1. ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ДЛЯ URL ---
-	const getNumParam = (key: string) => {
-		const val = searchParams.get(key)
-		return val ? Number(val) : null
-	}
-
-	const getStringParam = (key: string, def: string) => {
-		return searchParams.get(key) || def
-	}
-
-	// --- 2. STATE С ИНИЦИАЛИЗАЦИЕЙ ИЗ URL ---
-	// Приоритет: 1. URL параметр -> 2. State из навигации (s) -> 3. Дефолт
-
-	const [type, setType] = useState<'job' | 'worker'>(
-		() => getStringParam('type', 'job') as 'job' | 'worker',
-	)
-
-	const [query, setQuery] = useState(() => getStringParam('query', ''))
-
-	const [selectedCityId, setSelectedCityId] = useState<number>(
-		() => getNumParam('cityId') || 1,
-	)
-
-	const [selectedSphereId, setSelectedSphereId] = useState<number | null>(
-		() =>
-			getNumParam('sphereId') ||
-			s.initialSphere?.id ||
-			s.initialSphereId ||
-			null,
-	)
-
-	const [selectedCategoryId, setSelectedCategoryId] = useState<number | null>(
-		() => getNumParam('catId') || s.initialCategoryId || null,
-	)
-
-	const [selectedSubcategoryId, setSelectedSubcategoryId] = useState<
-		number | null
-	>(() => getNumParam('subId') || null)
-
-	// Данные из API
-	const [cities, setCities] = useState<City[]>([])
-	const [spheres, setSpheres] = useState<Sphere[]>([])
-	const [categories, setCategories] = useState<Category[]>([])
-	const [subcategories, setSubcategories] = useState<Subcategory[]>([])
-
-	const [results, setResults] = useState<any[]>([])
-	const [loading, setLoading] = useState(false)
-
-	// Контекст локации
 	const {
 		location: loc,
-		requestLocation,
 		permissionStatus,
+		requestLocation,
 	} = useContext(LocationContext)
+	const s = location.state || {}
 
+	// 1. Состояние фильтров (Синхронизировано с URL)
+	const [type, setType] = useState<'job' | 'worker'>(
+		() => (searchParams.get('type') as any) || 'job',
+	)
+	const [query, setQuery] = useState(() => searchParams.get('query') || '')
+	const [cityId, setCityId] = useState(
+		() => Number(searchParams.get('cityId')) || 1,
+	)
+	const [sphereId, setSphereId] = useState<number | null>(
+		() =>
+			Number(searchParams.get('sphereId')) || s.initialSphere?.id || null,
+	)
+	const [categoryId, setCategoryId] = useState<number | null>(
+		() => Number(searchParams.get('catId')) || null,
+	)
+	const [subcategoryId, setSubcategoryId] = useState<number | null>(
+		() => Number(searchParams.get('subId')) || null,
+	)
+
+	// 2. RTK Query Справочники
+	const { data: cities = [] } = useGetCitiesQuery(telegramId)
+	const { data: spheres = [] } = useGetSpheresQuery(telegramId)
+	const { data: categories = [] } = useGetCategoriesQuery(
+		{ tid: telegramId, sid: sphereId! },
+		{ skip: !sphereId },
+	)
+	const { data: subcategories = [] } = useGetSubcategoriesQuery(
+		{ tid: telegramId, cid: categoryId! },
+		{ skip: !categoryId },
+	)
+
+	// 3. RTK Query Поиск (Аргументы включают все фильтры и координаты)
+	const searchArgs = {
+		tid: telegramId,
+		cityId,
+		sphereId,
+		categoryId,
+		subcategoryId,
+		query, // Передаем текст поиска
+		userLatitude: loc?.lat || null,
+		userLongtude: loc?.lng || null,
+	}
+
+	const { data: jobResults = [], isFetching: isJobFetching } =
+		useSearchVacanciesQuery(searchArgs, { skip: type !== 'job' })
+	const { data: workerResults = [], isFetching: isWorkerFetching } =
+		useSearchResumesQuery(searchArgs, { skip: type !== 'worker' })
+
+	const results = type === 'job' ? jobResults : workerResults
+	const loading = isJobFetching || isWorkerFetching
+
+	// Синхронизация стейта с URL
 	useEffect(() => {
-		console.log('SEARCH_PAGE_LOC_UPDATE:', loc)
-		if (loc) {
-			showToast(`GPS пойман: ${loc.lat.toFixed(2)}`, 'info')
-		}
-	}, [loc])
-
-	// --- 3. СИНХРОНИЗАЦИЯ STATE -> URL ---
-	// При изменении любого фильтра обновляем URL
-	useEffect(() => {
-		const params: any = {}
-
-		if (type) params.type = type
+		const params: any = { type, cityId }
 		if (query) params.query = query
-		if (selectedCityId) params.cityId = selectedCityId.toString()
-		if (selectedSphereId) params.sphereId = selectedSphereId.toString()
-		if (selectedCategoryId) params.catId = selectedCategoryId.toString()
-		if (selectedSubcategoryId)
-			params.subId = selectedSubcategoryId.toString()
-
+		if (sphereId) params.sphereId = sphereId
+		if (categoryId) params.catId = categoryId
+		if (subcategoryId) params.subId = subcategoryId
 		setSearchParams(params, { replace: true })
 	}, [
 		type,
 		query,
-		selectedCityId,
-		selectedSphereId,
-		selectedCategoryId,
-		selectedSubcategoryId,
+		cityId,
+		sphereId,
+		categoryId,
+		subcategoryId,
 		setSearchParams,
 	])
 
-	// --- 4. ЗАГРУЗКА БАЗОВЫХ СПРАВОЧНИКОВ ---
-	useEffect(() => {
-		const loadBasics = async () => {
-			try {
-				const [citiesData, spheresData] = await Promise.all([
-					apiService.getCities(telegramId),
-					apiService.getSpheres(telegramId),
-				])
-				setCities(citiesData)
-				setSpheres(spheresData)
-			} catch (e) {
-				console.error(e)
-			}
-		}
-		loadBasics()
-
-		if (permissionStatus === 'prompt') {
-			requestLocation()
-		}
-	}, [telegramId]) // eslint-disable-line
-
-	// --- 5. ЗАГРУЗКА ЗАВИСИМЫХ СПРАВОЧНИКОВ ---
-	// Важно: эти эффекты ТОЛЬКО грузит данные, они НЕ должны сбрасывать стейт
-
-	useEffect(() => {
-		if (selectedSphereId) {
-			apiService
-				.getCategories(telegramId, selectedSphereId)
-				.then(setCategories)
-				.catch(console.error)
-		} else {
-			setCategories([])
-		}
-	}, [selectedSphereId, telegramId])
-
-	useEffect(() => {
-		if (selectedCategoryId) {
-			apiService
-				.getSubcategories(telegramId, selectedCategoryId)
-				.then(setSubcategories)
-				.catch(console.error)
-		} else {
-			setSubcategories([])
-		}
-	}, [selectedCategoryId, telegramId])
-
-	// --- 6. ХЕНДЛЕРЫ ИЗМЕНЕНИЙ (С ЛОГИКОЙ СБРОСА) ---
-
-	const handleSphereChange = (id: number) => {
-		setSelectedSphereId(id)
-		setSelectedCategoryId(null) // Сброс при ручном изменении
-		setSelectedSubcategoryId(null)
-	}
-
-	const handleCategoryChange = (id: number) => {
-		setSelectedCategoryId(id)
-		setSelectedSubcategoryId(null) // Сброс при ручном изменении
-	}
-
-	// --- 7. ПОИСК ---
-	const handleSearch = useCallback(async () => {
-		setResults([])
-		setLoading(true)
-		try {
-			const res: any[] =
-				type === 'job'
-					? await apiService.searchVacancies(
-							telegramId,
-							selectedCityId,
-							selectedSphereId,
-							selectedCategoryId,
-							selectedSubcategoryId,
-							loc?.lat || null,
-							loc?.lng || null,
-						)
-					: await apiService.searchResumes(
-							telegramId,
-							selectedCityId,
-							selectedSphereId,
-							selectedCategoryId,
-							selectedSubcategoryId,
-						)
-
-			setResults(res || [])
-		} catch (e) {
-			showToast('Ошибка при поиске', 'error')
-			console.error(e)
-		} finally {
-			setLoading(false)
-		}
-	}, [
-		type,
-		selectedCityId,
-		selectedSphereId,
-		selectedCategoryId,
-		selectedSubcategoryId,
-		telegramId,
-		loc,
-		query, // Если query используется в API, передайте его аргументом
-		showToast,
-	])
-
-	// Запуск поиска при изменении фильтров
-	useEffect(() => {
-		// Небольшая задержка (
-		// debounce) для ввода текста, если query используется
-		handleSearch()
-	}, [handleSearch])
-
 	return (
-		<div className='bg-white min-h-screen pb-40 animate-in fade-in duration-500 main-content-offset'>
+		<div className='bg-white min-h-screen pb-40 animate-in fade-in main-content-offset'>
 			<header
 				className='p-6 pt-12 space-y-6 sticky top-0 bg-white/95 backdrop-blur-md z-40 border-b border-slate-100'
 				style={{
 					paddingTop: 'calc(1.5rem + env(safe-area-inset-top))',
 				}}
 			>
-				{/* Блок поиска и кнопок */}
 				<div className='flex items-center gap-4'>
 					<button
 						onClick={() => navigate(-1)}
@@ -1000,7 +844,6 @@ const SearchPage: React.FC<{ telegramId: number }> = ({ telegramId }) => {
 					</div>
 				</div>
 
-				{/* Переключатель Вакансии / Сотрудники */}
 				<div className='flex bg-slate-100/50 p-1 rounded-2xl'>
 					<button
 						onClick={() => setType('job')}
@@ -1016,64 +859,54 @@ const SearchPage: React.FC<{ telegramId: number }> = ({ telegramId }) => {
 					</button>
 				</div>
 
-				{/* Селекторы города и сферы */}
 				<div className='space-y-4'>
 					<div className='grid grid-cols-2 gap-3'>
 						<ElegantSelect
 							placeholder='Город'
-							value={selectedCityId}
-							options={cities.map((c) => ({
-								id: c.id,
-								name: c.name,
-							}))}
-							onChange={(id) => setSelectedCityId(id)}
+							value={cityId}
+							options={cities}
+							onChange={setCityId}
 						/>
 						<ElegantSelect
 							placeholder='Сфера'
-							value={selectedSphereId}
-							options={spheres.map((s) => ({
-								id: s.id,
-								name: s.name,
-								icon: s.icon,
-							}))}
-							onChange={handleSphereChange} // Используем спец. хендлер
+							value={sphereId}
+							options={spheres}
+							onChange={(id) => {
+								setSphereId(id)
+								setCategoryId(null)
+								setSubcategoryId(null)
+							}}
 						/>
 					</div>
-
-					{selectedSphereId && (
+					{sphereId && (
 						<div className='grid grid-cols-2 gap-3 animate-in fade-in slide-in-from-top-2'>
 							<ElegantSelect
 								placeholder='Категория'
-								value={selectedCategoryId}
-								options={categories.map((c) => ({
-									id: c.id,
-									name: c.name,
-								}))}
-								onChange={handleCategoryChange} // Используем спец. хендлер
+								value={categoryId}
+								options={categories}
+								onChange={(id) => {
+									setCategoryId(id)
+									setSubcategoryId(null)
+								}}
 							/>
 							<ElegantSelect
 								disabled={
-									!selectedCategoryId ||
-									subcategories.length === 0
+									!categoryId || subcategories.length === 0
 								}
 								placeholder={
 									subcategories.length === 0
 										? 'Нет подкат.'
 										: 'Подкатегория'
 								}
-								value={selectedSubcategoryId}
-								options={subcategories.map((s) => ({
-									id: s.id,
-									name: s.name,
-								}))}
-								onChange={(id) => setSelectedSubcategoryId(id)}
+								value={subcategoryId}
+								options={subcategories}
+								onChange={setSubcategoryId}
 							/>
 						</div>
 					)}
 				</div>
 			</header>
 
-			{/* Список результатов */}
 			<div className='px-6 py-4 space-y-4 text-left'>
 				{loading && results.length === 0 ? (
 					<div className='p-20 flex justify-center'>
@@ -1086,11 +919,9 @@ const SearchPage: React.FC<{ telegramId: number }> = ({ telegramId }) => {
 							item={item}
 							type={type}
 							onClick={(stats: any) =>
-								// Передаем текущий URL в state, если нужно будет вернуться именно сюда
-								// Хотя searchParams и так сохранят всё в истории браузера
 								navigate(`/detail/${item.id}`, {
 									state: {
-										type: type === 'job' ? 'job' : 'worker',
+										type,
 										data: item,
 										initialStats: stats,
 									},
@@ -1108,70 +939,60 @@ const SearchPage: React.FC<{ telegramId: number }> = ({ telegramId }) => {
 	)
 }
 
+// Глобальный сет для отслеживания просмотров (как в твоем оригинале)
 const viewedIds = new Set<string>()
 
 const SearchResultItem = ({ item, type, onClick }: any) => {
-	const [stats, setStats] = useState<any>(null)
+	const { data: stats } =
+		type === 'job'
+			? useGetVacancyStatsQuery(item.id)
+			: useGetResumeStatsQuery(item.id)
+	const [trackView] = useTrackViewMutation()
 	const impressionRef = useRef<HTMLDivElement>(null)
+
+	useEffect(() => {
+		const trackingKey = `${type}-${item.id}`
+		if (viewedIds.has(trackingKey)) return
+
+		const observer = new IntersectionObserver(
+			(entries) => {
+				if (entries[0].isIntersecting) {
+					trackView({
+						type: type === 'job' ? 'job' : 'worker',
+						id: item.id,
+					})
+					viewedIds.add(trackingKey)
+					observer.disconnect()
+				}
+			},
+			{ threshold: 0.5 },
+		)
+
+		if (impressionRef.current) observer.observe(impressionRef.current)
+		return () => observer.disconnect()
+	}, [item.id, type, trackView])
 
 	const isBoosted = item.boosted === true
 	const isFree = item.free === true
-
-	// --- ЛОГИКА СТИЛЕЙ ---
-	const getCardStyles = () => {
-		if (isBoosted) {
-			// Золотая обводка, легкий золотистый фон, тень
-			return 'bg-amber-50/50 border-amber-400 shadow-md shadow-amber-100'
-		}
-		if (isFree) {
-			// Зеленая обводка, легкий зеленый фон
-			return 'bg-emerald-50/50 border-emerald-400 shadow-sm'
-		}
-		// Стандартный стиль
-		return 'bg-white border-slate-100 shadow-sm'
-	}
-
-	// --- ЛОГИКА (как была у вас) ---
-	useEffect(() => {
-		const fetchStats = async () => {
-			try {
-				const res =
-					type === 'vac' || type === 'job'
-						? await apiService.getVacancyStats(item.id)
-						: await apiService.getResumeStats(item.id)
-				setStats(res)
-			} catch (e) {
-				console.error(e)
-			}
-		}
-		fetchStats()
-	}, [item.id, type])
-
-	useEffect(() => {
-		// Ваша логика observer...
-		const trackingKey = `${type}-${item.id}`
-		// ... (код observer скрыт для краткости, он остается прежним)
-		// Если нужно, я могу его вернуть, но суть вопроса в дизайне
-	}, [item.id, type])
 
 	return (
 		<div
 			ref={impressionRef}
 			onClick={() => onClick(stats)}
-			className={`
-                relative p-6 rounded-[2.5rem] border 
-                active:scale-[0.98] transition-all animate-in fade-in slide-in-from-bottom-2 cursor-pointer
-                ${getCardStyles()} 
-            `}
+			className={`relative p-6 rounded-[2.5rem] border active:scale-[0.98] transition-all cursor-pointer ${
+				isBoosted
+					? 'bg-amber-50/50 border-amber-400 shadow-md shadow-amber-100'
+					: isFree
+						? 'bg-emerald-50/50 border-emerald-400 shadow-sm'
+						: 'bg-white border-slate-100 shadow-sm'
+			}`}
 		>
-			{/* --- БЕЙДЖИ (Визуальные метки) --- */}
 			{isBoosted && (
 				<div className='absolute -top-3 right-6 bg-gradient-to-r from-amber-400 to-orange-500 text-white text-[10px] font-black px-3 py-1 rounded-full shadow-sm flex items-center gap-1 z-10'>
 					<span>🚀</span>
 					<span>ТОП</span>
 				</div>
 			)}
-
 			{isFree && !isBoosted && (
 				<div className='absolute -top-3 right-6 bg-emerald-500 text-white text-[10px] font-black px-3 py-1 rounded-full shadow-sm flex items-center gap-1 z-10'>
 					<span>🎁</span>
@@ -1179,25 +1000,42 @@ const SearchResultItem = ({ item, type, onClick }: any) => {
 				</div>
 			)}
 
-			<div className='flex justify-between items-start mb-3'>
-				<div className='text-left'>
-					<span className='text-[9px] font-black text-white uppercase bg-[#111111] px-2 py-1 rounded-lg'>
-						{type === 'job' || type === 'vac'
-							? 'Вакансия'
-							: 'Резюме'}
+			<div className='flex gap-4 items-start mb-3'>
+				{/* --- ФОТО ПРОФИЛЯ ДЛЯ СОТРУДНИКА --- */}
+				{type === 'worker' && (
+					<div className='w-16 h-16 rounded-2xl overflow-hidden bg-slate-100 shrink-0 border border-slate-200 shadow-inner'>
+						{item.media?.[0]?.fileUrl ? (
+							<img
+								src={item.media[0].fileUrl}
+								className='w-full h-full object-cover'
+								alt={item.name}
+							/>
+						) : (
+							<div className='w-full h-full flex items-center justify-center text-2xl bg-slate-50'>
+								👤
+							</div>
+						)}
+					</div>
+				)}
+
+				<div className='flex-1 min-w-0 text-left'>
+					<span className='text-[9px] font-black text-white uppercase bg-[#111111] px-2 py-1 rounded-lg inline-block mb-1'>
+						{type === 'job' ? 'Вакансия' : 'Резюме'}
 					</span>
-					<h3 className='text-lg font-black text-slate-900 mt-1 leading-tight'>
-						{type === 'job' || type === 'vac'
-							? item.title
-							: item.name}
-					</h3>
-				</div>
-				<div
-					className={`text-xs font-black text-right shrink-0 ml-2 ${isBoosted ? 'text-amber-600' : 'text-red-700'}`}
-				>
-					{type === 'job' || type === 'vac'
-						? `${item.salary} 💵`
-						: `${item.experience}г. опыта`}
+					<div className='flex justify-between items-start gap-2'>
+						<h3 className='text-lg font-black text-slate-900 leading-tight truncate'>
+							{type === 'job' ? item.title : item.name}
+						</h3>
+						<div
+							className={`text-xs font-black text-right shrink-0 whitespace-nowrap ${
+								isBoosted ? 'text-amber-600' : 'text-red-700'
+							}`}
+						>
+							{type === 'job'
+								? `${item.salary} 💵`
+								: `${item.experience}г. опыта`}
+						</div>
+					</div>
 				</div>
 			</div>
 
@@ -1205,9 +1043,14 @@ const SearchResultItem = ({ item, type, onClick }: any) => {
 				{item.description}
 			</p>
 
-			{/* Нижняя часть карточки */}
 			<div
-				className={`pt-4 border-t flex items-center justify-between ${isBoosted ? 'border-amber-200/50' : isFree ? 'border-emerald-200/50' : 'border-slate-50'}`}
+				className={`pt-4 border-t flex items-center justify-between ${
+					isBoosted
+						? 'border-amber-200/50'
+						: isFree
+							? 'border-emerald-200/50'
+							: 'border-slate-50'
+				}`}
 			>
 				<div className='flex items-center gap-3'>
 					<div className='flex items-center gap-1 text-[10px] font-black text-slate-400'>
@@ -1218,8 +1061,8 @@ const SearchResultItem = ({ item, type, onClick }: any) => {
 						<ClickIcon />
 						<span>{stats?.contactClicksCount ?? 0}</span>
 					</div>
+
 					<div className='flex items-center gap-1 text-[10px] font-black text-red-600 text-left'>
-						{/* Иконка отклика */}
 						<svg
 							className='w-3 h-3'
 							fill='none'
@@ -1234,14 +1077,14 @@ const SearchResultItem = ({ item, type, onClick }: any) => {
 							/>
 						</svg>
 						<span>
-							{type === 'job' || type === 'vac'
+							{type === 'job'
 								? (stats?.responseCount ?? 0)
 								: (stats?.invitationCount ?? 0)}
 						</span>
-						{type === 'vac' && (
+
+						{type === 'job' && item.distanceKm !== undefined && (
 							<span className='ml-1 text-slate-400 font-medium'>
 								• {Math.round(item.distanceKm)} км
-								{item.distanceKm}
 							</span>
 						)}
 					</div>
@@ -1254,989 +1097,91 @@ const SearchResultItem = ({ item, type, onClick }: any) => {
 		</div>
 	)
 }
-
-// const CreatePage: React.FC<{ telegramId: number }> = ({ telegramId }) => {
-// 	const location = useLocation()
-// 	const navigate = useNavigate()
-// 	const { type, existingData } = location.state || { type: 'vac' }
-// 	const { showToast } = useToast()
-// 	const [loading, setLoading] = useState(false)
-// 	const [isAiGenerating, setIsAiGenerating] = useState(false)
-
-// 	const [cities, setCities] = useState<City[]>([])
-// 	const [spheres, setSpheres] = useState<Sphere[]>([])
-// 	const [categories, setCategories] = useState<Category[]>([])
-// 	const [subcategories, setSubcategories] = useState<Subcategory[]>([])
-
-// 	const [formData, setFormData] = useState<any>(
-// 		existingData || {
-// 			title: '',
-// 			name: '',
-// 			description: '',
-// 			salary: '',
-// 			cityId: 1,
-// 			sphereId: 0,
-// 			categoryId: 0,
-// 			subcategoryId: 0,
-// 			phone: '+996',
-// 			companyName: '',
-// 			age: 18,
-// 			gender: 'MALE',
-// 			experience: 0,
-// 			experienceInYear: 0,
-// 			address: '',
-// 			schedule: '',
-// 			minAge: 18,
-// 			maxAge: 45,
-// 			preferredGender: 'ANY',
-// 			latitude: null,
-// 			longitude: null,
-// 		},
-// 	)
-
-// 	const [selectedPhotos, setSelectedPhotos] = useState<File[]>([])
-// 	const [selectedVideos, setSelectedVideos] = useState<File[]>([])
-
-// 	useEffect(() => {
-// 		apiService.getCities(telegramId).then(setCities)
-// 		apiService.getSpheres(telegramId).then(setSpheres)
-// 	}, [telegramId])
-
-// 	useEffect(() => {
-// 		if (formData.sphereId) {
-// 			apiService
-// 				.getCategories(telegramId, formData.sphereId)
-// 				.then(setCategories)
-// 		}
-// 	}, [formData.sphereId, telegramId])
-
-// 	useEffect(() => {
-// 		if (formData.categoryId) {
-// 			apiService
-// 				.getSubcategories(telegramId, formData.categoryId)
-// 				.then(setSubcategories)
-// 		}
-// 	}, [formData.categoryId, telegramId])
-
-// 	const handleAction = async () => {
-// 		const isVac = type === 'vac' || type === 'job'
-// 		const isUpdate = !!existingData?.id
-// 		setLoading(true)
-// 		try {
-// 			let resultId: number
-// 			if (isVac) {
-// 				const payload = { ...formData, cityId: Number(formData.cityId) }
-// 				const res = isUpdate
-// 					? await apiService.updateVacancy(
-// 							existingData.id,
-// 							telegramId,
-// 							payload,
-// 						)
-// 					: await apiService.createVacancy(telegramId, payload)
-// 				resultId = res.id
-// 			} else {
-// 				const payload = { ...formData, cityId: Number(formData.cityId) }
-// 				const res = isUpdate
-// 					? await apiService.updateResume(
-// 							existingData.id,
-// 							telegramId,
-// 							payload,
-// 						)
-// 					: await apiService.createResume(telegramId, payload)
-// 				resultId = res.id
-// 			}
-
-// 			// Handle Media Uploads
-// 			for (const file of selectedPhotos) {
-// 				if (isVac)
-// 					await apiService.uploadVacancyPhoto(
-// 						resultId,
-// 						telegramId,
-// 						file,
-// 					)
-// 				else
-// 					await apiService.uploadResumePhoto(
-// 						resultId,
-// 						telegramId,
-// 						file,
-// 					)
-// 			}
-// 			for (const file of selectedVideos) {
-// 				if (isVac)
-// 					await apiService.uploadVacancyVideo(
-// 						resultId,
-// 						telegramId,
-// 						file,
-// 					)
-// 				else
-// 					await apiService.uploadResumeVideo(
-// 						resultId,
-// 						telegramId,
-// 						file,
-// 					)
-// 			}
-
-// 			showToast(isUpdate ? 'Успешно обновлено!' : 'Успешно опубликовано!')
-// 			navigate('/profile')
-// 		} catch (e) {
-// 			showToast('Ошибка при сохранении', 'error')
-// 		} finally {
-// 			setLoading(false)
-// 		}
-// 	}
-
-// 	// const handleAiHelp = async () => {
-// 	// 	setIsAiGenerating(true)
-// 	// 	try {
-// 	// 		let result = ''
-// 	// 		if (type === 'vac' || type === 'job') {
-// 	// 			result = await geminiService.generateJobDescription(
-// 	// 				formData.title || 'Сотрудник',
-// 	// 				formData.companyName || 'Наша компания',
-// 	// 			)
-// 	// 		} else {
-// 	// 			const sphereName =
-// 	// 				spheres.find(
-// 	// 					(s) => String(s.id) === String(formData.sphereId),
-// 	// 				)?.name || 'моей сфере'
-// 	// 			result = await geminiService.generateResumeSummary(
-// 	// 				formData.name || 'Соискатель',
-// 	// 				formData.experience || 0,
-// 	// 				sphereName,
-// 	// 			)
-// 	// 		}
-// 	// 		setFormData({ ...formData, description: result })
-// 	// 		showToast('AI помог составить описание! ✨')
-// 	// 	} catch (e) {
-// 	// 		showToast('Ошибка AI', 'error')
-// 	// 	} finally {
-// 	// 		setIsAiGenerating(false)
-// 	// 	}
-// 	// }
-
-// 	const inputClass =
-// 		'w-full bg-slate-50 border border-slate-100 h-14 px-6 rounded-2xl text-sm font-bold focus:outline-none ring-2 ring-transparent focus:ring-red-50 transition-all placeholder:text-slate-300 text-slate-900'
-
-// 	return (
-// 		<div className='bg-white min-h-screen pb-40 animate-in fade-in duration-500'>
-// 			<header
-// 				className='p-6 pt-12 flex items-center gap-4 sticky top-0 bg-white/90 backdrop-blur-md z-40 border-b border-slate-100'
-// 				style={{
-// 					paddingTop: 'calc(1.5rem + env(safe-area-inset-top))',
-// 				}}
-// 			>
-// 				<button
-// 					onClick={() => navigate(-1)}
-// 					className='w-10 h-10 bg-slate-50 rounded-xl flex items-center justify-center text-slate-600'
-// 				>
-// 					←
-// 				</button>
-// 				<h2 className='text-2xl font-black text-slate-900 leading-tight'>
-// 					{existingData
-// 						? 'Редактирование'
-// 						: type === 'vac'
-// 							? 'Новая Вакансия'
-// 							: 'Новое Резюме'}
-// 				</h2>
-// 			</header>
-
-// 			<div className='px-6 py-6 space-y-6 text-left'>
-// 				<FormField
-// 					label={
-// 						type === 'vac' || type === 'job'
-// 							? 'Название вакансии'
-// 							: 'Ваше Имя'
-// 					}
-// 				>
-// 					<input
-// 						value={
-// 							type === 'vac' || type === 'job'
-// 								? formData.title
-// 								: formData.name
-// 						}
-// 						onChange={(e) =>
-// 							setFormData({
-// 								...formData,
-// 								[type === 'vac' || type === 'job'
-// 									? 'title'
-// 									: 'name']: e.target.value,
-// 							})
-// 						}
-// 						placeholder='Введите название...'
-// 						className={inputClass}
-// 					/>
-// 				</FormField>
-
-// 				<ElegantSelect
-// 					label='Город'
-// 					placeholder='Выберите город'
-// 					value={formData.cityId}
-// 					options={cities.map((c) => ({ id: c.id, name: c.name }))}
-// 					onChange={(id) => setFormData({ ...formData, cityId: id })}
-// 				/>
-
-// 				{/* Блок категорий */}
-// 				<div className='space-y-6 p-6 bg-slate-50 rounded-[2.5rem] border border-slate-100'>
-// 					<ElegantSelect
-// 						label='Сфера'
-// 						placeholder='Выберите сферу'
-// 						value={formData.sphereId}
-// 						options={spheres.map((s) => ({
-// 							id: s.id,
-// 							name: s.name,
-// 						}))}
-// 						onChange={(id) =>
-// 							setFormData({
-// 								...formData,
-// 								sphereId: id,
-// 								categoryId: 0,
-// 								subcategoryId: 0,
-// 							})
-// 						}
-// 					/>
-// 					{formData.sphereId > 0 && (
-// 						<ElegantSelect
-// 							label='Категория'
-// 							placeholder='Выберите категорию'
-// 							value={formData.categoryId}
-// 							options={categories.map((c) => ({
-// 								id: c.id,
-// 								name: c.name,
-// 							}))}
-// 							onChange={(id) =>
-// 								setFormData({
-// 									...formData,
-// 									categoryId: id,
-// 									subcategoryId: 0,
-// 								})
-// 							}
-// 						/>
-// 					)}
-// 					{formData.categoryId > 0 && subcategories.length > 0 && (
-// 						<ElegantSelect
-// 							label='Подкатегория'
-// 							placeholder='Выберите подкатегорию'
-// 							value={formData.subcategoryId}
-// 							options={subcategories.map((s) => ({
-// 								id: s.id,
-// 								name: s.name,
-// 							}))}
-// 							onChange={(id) =>
-// 								setFormData({ ...formData, subcategoryId: id })
-// 							}
-// 						/>
-// 					)}
-// 				</div>
-
-// 				<div className='space-y-6'>
-// 					{/* Блок загрузки фото/видео */}
-// 					<div className='space-y-4'>
-// 						<FormField label='Фото (JPG, PNG, max 10MB)'>
-// 							<input
-// 								type='file'
-// 								accept='image/*'
-// 								multiple
-// 								onChange={(e) =>
-// 									e.target.files &&
-// 									setSelectedPhotos([
-// 										...selectedPhotos,
-// 										...Array.from(e.target.files),
-// 									])
-// 								}
-// 								className='hidden'
-// 								id='photo-upload'
-// 							/>
-// 							<label
-// 								htmlFor='photo-upload'
-// 								className='w-full h-14 bg-slate-900 text-white rounded-2xl flex items-center justify-center gap-2 cursor-pointer shadow-lg active:scale-95 transition-all'
-// 							>
-// 								<span>Выбрать фото</span>
-// 								<span className='bg-white/20 px-2 py-0.5 rounded text-[10px]'>
-// 									{selectedPhotos.length}
-// 								</span>
-// 							</label>
-// 							<div className='flex gap-3 overflow-x-auto no-scrollbar py-2'>
-// 								{selectedPhotos.map((file, i) => (
-// 									<div
-// 										key={i}
-// 										className='relative shrink-0 w-20 h-20 rounded-2xl overflow-hidden border border-slate-100'
-// 									>
-// 										<img
-// 											src={URL.createObjectURL(file)}
-// 											className='w-full h-full object-cover'
-// 											alt='preview'
-// 										/>
-// 										<button
-// 											onClick={() =>
-// 												setSelectedPhotos(
-// 													selectedPhotos.filter(
-// 														(_, idx) => idx !== i,
-// 													),
-// 												)
-// 											}
-// 											className='absolute top-1 right-1 w-5 h-5 bg-red-600 text-white rounded-full text-[10px]'
-// 										>
-// 											×
-// 										</button>
-// 									</div>
-// 								))}
-// 							</div>
-// 						</FormField>
-
-// 						<FormField label='Видео (MP4, max 100MB)'>
-// 							<input
-// 								type='file'
-// 								accept='video/*'
-// 								multiple
-// 								onChange={(e) =>
-// 									e.target.files &&
-// 									setSelectedVideos([
-// 										...selectedVideos,
-// 										...Array.from(e.target.files),
-// 									])
-// 								}
-// 								className='hidden'
-// 								id='video-upload'
-// 							/>
-// 							<label
-// 								htmlFor='video-upload'
-// 								className='w-full h-14 bg-slate-100 text-slate-900 rounded-2xl flex items-center justify-center gap-2 cursor-pointer shadow-sm active:scale-95 transition-all border border-slate-200'
-// 							>
-// 								<span>Выбрать видео</span>
-// 								<span className='bg-slate-900/10 px-2 py-0.5 rounded text-[10px]'>
-// 									{selectedVideos.length}
-// 								</span>
-// 							</label>
-// 						</FormField>
-// 					</div>
-// 				</div>
-
-// 				{type === 'vac' || type === 'job' ? (
-// 					<>
-// 						{/* --- НОВЫЕ ПОЛЯ ДЛЯ ВАКАНСИИ НАЧАЛО --- */}
-// 						<div className='grid grid-cols-2 gap-4'>
-// 							<FormField label='Мин. возраст'>
-// 								<input
-// 									type='number'
-// 									value={formData.minAge}
-// 									onChange={(e) =>
-// 										setFormData({
-// 											...formData,
-// 											minAge: e.target.value,
-// 										})
-// 									}
-// 									placeholder='18'
-// 									className={inputClass}
-// 								/>
-// 							</FormField>
-// 							<FormField label='Макс. возраст'>
-// 								<input
-// 									type='number'
-// 									value={formData.maxAge}
-// 									onChange={(e) =>
-// 										setFormData({
-// 											...formData,
-// 											maxAge: e.target.value,
-// 										})
-// 									}
-// 									placeholder='45'
-// 									className={inputClass}
-// 								/>
-// 							</FormField>
-// 						</div>
-
-// 						<ElegantSelect
-// 							label='Кого вы ищете? (Пол)'
-// 							placeholder='Выберите пол кандидата'
-// 							value={formData.preferredGender}
-// 							options={[
-// 								{
-// 									id: 'ANY',
-// 									name: 'Не имеет значения',
-// 									icon: '👥',
-// 								},
-// 								{ id: 'MALE', name: 'Мужской', icon: '👨' },
-// 								{ id: 'FEMALE', name: 'Женский', icon: '👩' },
-// 							]}
-// 							onChange={(id) =>
-// 								setFormData({
-// 									...formData,
-// 									preferredGender: id,
-// 								})
-// 							}
-// 						/>
-
-// 						<FormField label='График работы'>
-// 							<input
-// 								value={formData.schedule}
-// 								onChange={(e) =>
-// 									setFormData({
-// 										...formData,
-// 										schedule: e.target.value,
-// 									})
-// 								}
-// 								placeholder='5/2, с 09:00 до 18:00'
-// 								className={inputClass}
-// 							/>
-// 						</FormField>
-// 						{/* --- НОВЫЕ ПОЛЯ ДЛЯ ВАКАНСИИ КОНЕЦ --- */}
-
-// 						<div className='grid grid-cols-2 gap-4'>
-// 							<FormField label='Зарплата'>
-// 								<input
-// 									value={formData.salary}
-// 									onChange={(e) =>
-// 										setFormData({
-// 											...formData,
-// 											salary: e.target.value,
-// 										})
-// 									}
-// 									placeholder='80 000 сом'
-// 									className={inputClass}
-// 								/>
-// 							</FormField>
-// 							<FormField label='Опыт (лет)'>
-// 								<input
-// 									type='number'
-// 									value={formData.experienceInYear}
-// 									onChange={(e) =>
-// 										setFormData({
-// 											...formData,
-// 											experienceInYear: e.target.value,
-// 										})
-// 									}
-// 									className={inputClass}
-// 								/>
-// 							</FormField>
-// 						</div>
-// 						<FormField label='Компания'>
-// 							<input
-// 								value={formData.companyName}
-// 								onChange={(e) =>
-// 									setFormData({
-// 										...formData,
-// 										companyName: e.target.value,
-// 									})
-// 								}
-// 								placeholder='WORK KG'
-// 								className={inputClass}
-// 							/>
-// 						</FormField>
-
-// 						{/* ИНТЕГРАЦИЯ 2GIS */}
-// 						<AddressAutocomplete2GIS
-// 							value={formData.address || ''}
-// 							onChange={(data) =>
-// 								setFormData({
-// 									...formData,
-// 									address: data.address,
-// 									latitude: data.lat,
-// 									longitude: data.lng,
-// 								})
-// 							}
-// 						/>
-
-// 						<FormField label='Телефон / TG'>
-// 							<input
-// 								value={formData.phone}
-// 								onChange={(e) =>
-// 									setFormData({
-// 										...formData,
-// 										phone: formatPhoneKG(e.target.value),
-// 									})
-// 								}
-// 								placeholder='+996'
-// 								className={inputClass}
-// 							/>
-// 						</FormField>
-// 					</>
-// 				) : (
-// 					// БЛОК ДЛЯ РЕЗЮМЕ
-// 					<>
-// 						<div className='grid grid-cols-2 gap-4'>
-// 							<FormField label='Возраст'>
-// 								<input
-// 									type='number'
-// 									value={formData.age}
-// 									onChange={(e) =>
-// 										setFormData({
-// 											...formData,
-// 											age: e.target.value,
-// 										})
-// 									}
-// 									className={inputClass}
-// 								/>
-// 							</FormField>
-// 							<FormField label='Опыт (лет)'>
-// 								<input
-// 									type='number'
-// 									value={formData.experience}
-// 									onChange={(e) =>
-// 										setFormData({
-// 											...formData,
-// 											experience: e.target.value,
-// 										})
-// 									}
-// 									className={inputClass}
-// 								/>
-// 							</FormField>
-// 						</div>
-// 						<ElegantSelect
-// 							label='Пол'
-// 							placeholder='Выберите пол'
-// 							value={formData.gender}
-// 							options={[
-// 								{ id: 'MALE', name: 'Мужской', icon: '👨' },
-// 								{ id: 'FEMALE', name: 'Женский', icon: '👩' },
-// 							]}
-// 							onChange={(id) =>
-// 								setFormData({ ...formData, gender: id })
-// 							}
-// 						/>
-// 					</>
-// 				)}
-
-// 				<FormField label='Описание'>
-// 					<div className='relative'>
-// 						<textarea
-// 							value={formData.description}
-// 							onChange={(e) =>
-// 								setFormData({
-// 									...formData,
-// 									description: e.target.value,
-// 								})
-// 							}
-// 							className='w-full bg-slate-50 border border-slate-100 min-h-[160px] p-6 rounded-3xl text-sm font-medium focus:outline-none resize-none ring-2 ring-transparent focus:ring-red-50 transition-all'
-// 						/>
-// 						{/* <button
-// 							onClick={handleAiHelp}
-// 							disabled={isAiGenerating}
-// 							className='absolute bottom-4 right-4 bg-slate-900 text-white px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg active:scale-95 disabled:opacity-50'
-// 						>
-// 							{isAiGenerating ? '...' : 'AI Помощь ✨'}
-// 						</button> */}
-// 					</div>
-// 				</FormField>
-
-// 				<button
-// 					onClick={handleAction}
-// 					disabled={loading}
-// 					className='w-full py-6 bg-slate-900 text-white rounded-[2rem] font-black uppercase text-xs tracking-widest shadow-xl active:scale-[0.98] transition-all'
-// 				>
-// 					{loading
-// 						? 'Загрузка...'
-// 						: existingData
-// 							? 'Сохранить изменения'
-// 							: 'Опубликовать'}
-// 				</button>
-// 			</div>
-// 		</div>
-// 	)
-// }
-
-const ProfilePage: React.FC<{ telegramId: number; user: User | null }> = ({
-	telegramId,
-	user,
-}) => {
-	const navigate = useNavigate()
-	const { showToast } = useToast()
-
-	// --- ИЗМЕНЕНИЕ 1: Заменяем useState на useSearchParams ---
-	const [searchParams, setSearchParams] = useSearchParams()
-
-	// Получаем текущий таб из URL. Если параметра нет — по дефолту 'resumes'
-	const activeTabParam = searchParams.get('tab')
-	const activeTab: 'resumes' | 'vacancies' =
-		activeTabParam === 'vacancies' ? 'vacancies' : 'resumes'
-
-	// Функция для смены таба (меняет URL)
-	const handleTabChange = (tab: 'resumes' | 'vacancies') => {
-		setSearchParams({ tab }, { replace: true }) // replace: true чтобы не засорять историю
-	}
-	// ---------------------------------------------------------
-
-	const [resumes, setResumes] = useState<any[]>([])
-	const [vacancies, setVacancies] = useState<any[]>([])
-	const [loading, setLoading] = useState(true)
-	const [boostTarget, setBoostTarget] = useState<{
-		id: number
-		type: 'res' | 'vac'
-		name: string
-	} | null>(null)
-	const [isBoosting, setIsBoosting] = useState(false)
-	const tgUserPhoto = window.Telegram?.WebApp?.initDataUnsafe?.user?.photo_url
-
-	const fetchAll = useCallback(async () => {
-		setLoading(true)
-		try {
-			const [r, v] = await Promise.all([
-				apiService.getUserResumes(telegramId),
-				apiService.getUserVacancies(telegramId),
-			])
-			setResumes(r)
-			setVacancies(v)
-		} catch (e) {
-			showToast('Ошибка загрузки', 'error')
-		} finally {
-			setLoading(false)
-		}
-	}, [telegramId, showToast])
-
-	useEffect(() => {
-		fetchAll()
-	}, [fetchAll])
-
-	const handleApplyBoost = async () => {
-		if (!boostTarget) return
-
-		setIsBoosting(true)
-		try {
-			if (boostTarget.type === 'res') {
-				await apiService.boostResumePoints(boostTarget.id, telegramId)
-			} else {
-				await apiService.boostVacancyPoints(boostTarget.id, telegramId)
-			}
-			showToast('Объявление поднято в ТОП! 🚀', 'success')
-			setBoostTarget(null)
-			fetchAll()
-		} catch (e: any) {
-			const msg =
-				e.response?.data?.message || 'Недостаточно баллов или ошибка'
-			showToast(msg, 'error')
-		} finally {
-			setIsBoosting(false)
-		}
-	}
-
-	const renderCard = (item: any, type: 'res' | 'vac') => (
-		<div
-			key={item.id}
-			className={`bg-white p-6 rounded-[2.5rem] border shadow-sm transition-all ${item.isActive !== false ? 'border-slate-100' : 'border-slate-200 opacity-70 grayscale'}`}
-		>
-			<div className='flex justify-between items-start mb-5'>
-				<div className='text-left'>
-					<h4 className='font-black text-slate-900 text-lg leading-tight'>
-						{type === 'res' ? item.name : item.title}
-					</h4>
-					<p className='text-[10px] font-bold text-slate-400 uppercase mt-1'>
-						{item.cityName} • {item.categoryName}
-					</p>
-				</div>
-				<button
-					onClick={() =>
-						navigate('/edit', {
-							state: { type: type, existingData: item },
-						})
-					}
-					className='w-10 h-10 flex items-center justify-center bg-slate-50 rounded-xl transition-colors active:scale-95'
-				>
-					✏️
-				</button>
-			</div>
-			<div className='grid grid-cols-2 gap-3 mt-4'>
-				<button
-					onClick={() =>
-						navigate('/profile-detail', {
-							state: {
-								type: type === 'res' ? 'worker' : 'job',
-								data: item,
-							},
-						})
-					}
-					className='py-4 bg-slate-900 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest active:scale-[0.98] transition-transform'
-				>
-					Просмотр
-				</button>
-				<button
-					onClick={() =>
-						setBoostTarget({
-							id: item.id,
-							type,
-							name: type === 'res' ? item.name : item.title,
-						})
-					}
-					className='py-4 bg-red-50 text-red-700 rounded-2xl text-[10px] font-black uppercase tracking-widest active:scale-[0.98] transition-transform'
-				>
-					Продвинуть 🚀
-				</button>
-			</div>
-		</div>
-	)
-
-	return (
-		<div className='px-5 space-y-6 py-12 pb-40 min-h-screen bg-[#fcfcfc]'>
-			<div className='bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm space-y-4 relative overflow-hidden'>
-				<div className='flex items-center gap-4 relative z-10'>
-					<div className='w-16 h-16 bg-slate-50 rounded-3xl flex items-center justify-center font-black text-slate-900 text-2xl border border-slate-100 overflow-hidden shrink-0'>
-						{tgUserPhoto ? (
-							<img
-								src={tgUserPhoto}
-								alt='Profile'
-								className='w-full h-full object-cover'
-								onError={(e) => {
-									e.currentTarget.style.display = 'none'
-								}}
-							/>
-						) : (
-							user?.firstName?.charAt(0)
-						)}
-					</div>
-					<div className='text-left text-slate-900 overflow-hidden'>
-						<h3 className='text-xl font-black truncate'>
-							{user?.firstName}
-						</h3>
-						<p className='text-xs font-bold text-slate-400 uppercase tracking-widest'>
-							ID: {telegramId}
-						</p>
-					</div>
-					<button
-						onClick={() => navigate('/subscription')}
-						className='ml-auto px-4 py-2 bg-slate-900 text-white text-[9px] font-black uppercase rounded-xl shadow-lg active:scale-95 transition-transform'
-					>
-						PRO 💎
-					</button>
-				</div>
-				<div className='pt-4 border-t border-slate-50 flex justify-between items-center relative z-10'>
-					<div className='text-left'>
-						<span className='text-[10px] font-black text-slate-400 uppercase block'>
-							Баланс
-						</span>
-						<span className='text-lg font-black text-red-800'>
-							{user?.balance || 0} PTS
-						</span>
-					</div>
-					<button
-						onClick={() => navigate('/withdraw')}
-						className='text-[10px] font-black text-slate-900 uppercase bg-slate-50 px-4 py-2 rounded-xl border border-slate-100 active:scale-95 transition-transform'
-					>
-						Вывод
-					</button>
-				</div>
-			</div>
-
-			{/* --- ИЗМЕНЕНИЕ 2: Кнопки переключения табов --- */}
-			<div className='flex bg-white p-1.5 rounded-2xl border border-slate-100'>
-				<button
-					onClick={() => handleTabChange('resumes')}
-					className={`flex-1 py-3 rounded-xl font-black text-xs uppercase tracking-widest transition-all ${activeTab === 'resumes' ? 'bg-slate-900 text-white shadow-xl' : 'text-slate-400 hover:text-slate-600'}`}
-				>
-					Мои Резюме
-				</button>
-				<button
-					onClick={() => handleTabChange('vacancies')}
-					className={`flex-1 py-3 rounded-xl font-black text-xs uppercase tracking-widest transition-all ${activeTab === 'vacancies' ? 'bg-slate-900 text-white shadow-xl' : 'text-slate-400 hover:text-slate-600'}`}
-				>
-					Мои Вакансии
-				</button>
-			</div>
-
-			{loading ? (
-				<div className='animate-pulse space-y-4'>
-					{[1, 2].map((i) => (
-						<div
-							key={i}
-							className='h-64 bg-white rounded-[2.5rem]'
-						/>
-					))}
-				</div>
-			) : (
-				<div className='space-y-4 text-left'>
-					{/* --- ИЗМЕНЕНИЕ 3: Рендер на основе activeTab (теперь это вычисляемая переменная) --- */}
-					{(activeTab === 'resumes' ? resumes : vacancies).length >
-					0 ? (
-						(activeTab === 'resumes' ? resumes : vacancies).map(
-							(i) =>
-								renderCard(
-									i,
-									activeTab === 'resumes' ? 'res' : 'vac',
-								),
-						)
-					) : (
-						<div className='py-10 text-center text-slate-300 font-bold uppercase text-xs tracking-widest'>
-							{activeTab === 'resumes'
-								? 'У вас пока нет резюме'
-								: 'У вас пока нет вакансий'}
-						</div>
-					)}
-				</div>
-			)}
-
-			{boostTarget && (
-				<div className='fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex items-end justify-center transition-all duration-300'>
-					<div
-						className='absolute inset-0'
-						onClick={() => setBoostTarget(null)}
-					/>
-					<div className='w-full max-w-md bg-white rounded-t-[3rem] p-8 pb-12 space-y-6 animate-in slide-in-from-bottom duration-300 relative z-[101] shadow-[0_-10px_40px_rgba(0,0,0,0.1)] mb-[70px]'>
-						<div className='text-center space-y-2'>
-							<div className='w-12 h-1.5 bg-slate-100 rounded-full mx-auto mb-4' />
-							<h3 className='text-2xl font-black text-slate-900 leading-tight'>
-								Продвижение 🚀
-							</h3>
-							<p className='text-sm text-slate-500 font-medium px-4'>
-								Поднимите «
-								<span className='text-slate-900 font-bold'>
-									{boostTarget.name}
-								</span>
-								» в самый верх списка на 24 часа.
-							</p>
-						</div>
-
-						<div className='space-y-3'>
-							<button
-								disabled={isBoosting}
-								onClick={handleApplyBoost}
-								className='w-full py-5 bg-indigo-600 text-white rounded-2xl font-black uppercase tracking-widest shadow-xl shadow-indigo-100 active:scale-95 transition-all disabled:opacity-50'
-							>
-								{isBoosting
-									? 'Применяем...'
-									: 'Поднять за 400 баллов'}
-							</button>
-
-							<button
-								onClick={() =>
-									showToast(
-										'Оплата временно недоступна',
-										'info',
-									)
-								}
-								className='w-full py-5 bg-emerald-50 text-emerald-600 rounded-2xl font-black uppercase tracking-widest active:scale-95 transition-all'
-							>
-								Поднять за 20 сом
-							</button>
-
-							<button
-								onClick={() => setBoostTarget(null)}
-								className='w-full py-2 text-slate-400 font-black uppercase text-[10px] tracking-widest'
-							>
-								Закрыть
-							</button>
-						</div>
-					</div>
-				</div>
-			)}
-		</div>
-	)
-}
-
 const DetailPage: React.FC<{ telegramId: number }> = ({ telegramId }) => {
-	const location = useLocation()
 	const navigate = useNavigate()
-	const { type, data } = location.state || {}
+	const location = useLocation()
 	const { showToast } = useToast()
 	const { location: userLocation } = useContext(LocationContext)
 
-	const [item, setItem] = useState<any>(data)
-	const [loading, setLoading] = useState(!data)
-	const [stats, setStats] = useState<any>(null)
+	// Данные, переданные через state (id и тип обязательны)
+	const { type, data } = location.state || {}
+
+	// 1. RTK Query: Детальные данные
+	const { data: newData, isLoading } =
+		type === 'worker'
+			? useGetResumeDetailQuery({
+					id: data.id,
+					tid: telegramId,
+					isProfile: false,
+				})
+			: useGetVacancyDetailQuery({
+					id: data.id,
+					tid: telegramId,
+					isProfile: false,
+				})
+	let item: any = newData
+	// 2. RTK Query: Статистика
+	const { data: stats } =
+		type === 'worker'
+			? useGetResumeStatsQuery(data.id)
+			: useGetVacancyStatsQuery(data.id)
+
+	const [trackContact] = useTrackContactClickMutation()
+	const [trackView] = useTrackViewMutation()
 	const [selectedMedia, setSelectedMedia] = useState<Media | null>(null)
 
+	// Трекинг просмотра при загрузке
 	useEffect(() => {
-		const fetchFullDetail = async () => {
-			if (!data?.id) return
-			try {
-				const fullItem =
-					type === 'worker'
-						? await apiService.getResume(data.id, telegramId, false)
-						: await apiService.getVacancy(
-								data.id,
-								telegramId,
-								false,
-							)
-				setItem(fullItem)
-
-				const statsRes =
-					type === 'worker'
-						? await apiService.getResumeStats(data.id)
-						: await apiService.getVacancyStats(data.id)
-				setStats(statsRes)
-			} catch (e) {
-				console.error(e)
-			} finally {
-				setLoading(false)
-			}
-		}
-		fetchFullDetail()
-	}, [data, type, telegramId])
+		if (data?.id)
+			trackView({
+				type: type === 'worker' ? 'worker' : 'job',
+				id: data.id,
+			})
+	}, [data?.id, type, trackView])
 
 	const handleContactClick = (platform: 'whatsapp' | 'telegram') => {
-		apiService.trackContactClick(
-			type === 'worker' ? 'worker' : 'job',
-			item.id,
-			telegramId,
-		)
+		if (!item) return
+		trackContact({
+			type: type === 'worker' ? 'worker' : 'job',
+			id: item.id,
+			tid: telegramId,
+		})
+		showToast(`Переходим в ${platform}...`)
 
-		showToast(`Переходим в ${platform}...`, 'success')
+		const phone = item.phone.replace(/\D/g, '')
+		const url =
+			platform === 'whatsapp'
+				? `https://wa.me/${phone}`
+				: `https://t.me/${(item.telegramUsername || item.userName || '').replace('@', '')}`
 
-		const tgApp = window.Telegram?.WebApp
-
-		if (platform === 'whatsapp') {
-			const phone = item.phone.replace(/\D/g, '')
-			const url = `https://wa.me/${phone}`
-
-			if (tgApp) {
-				// Для WhatsApp ОБЯЗАТЕЛЬНО используем openLink
-				// try_instant_view: false заставляет открыть именно приложение WhatsApp
-				tgApp.openLink(url, { try_instant_view: false })
-			} else {
-				window.open(url, '_blank')
-			}
-		} else {
-			let username = item.telegramUsername || item.userName || ''
-			username = username.replace(/^@/, '')
-			const url = `https://t.me/${username}`
-
-			if (tgApp) {
-				// Для Telegram ссылок используем специальный метод
-				tgApp.openTelegramLink(url)
-			} else {
-				window.open(url, '_blank')
-			}
-		}
+		if (tg)
+			platform === 'whatsapp'
+				? tg.openLink(url, { try_instant_view: false })
+				: tg.openTelegramLink(url)
+		else window.open(url, '_blank')
 	}
 
-	// ЛОГИКА ОТКРЫТИЯ 2GIS
 	const open2GISRoute = () => {
-		if (!item.address) return
-
-		// 1. Очищаем и формируем адрес
-		// Убеждаемся, что город и адрес разделены запятой для лучшего поиска
+		if (!item?.address) return
 		const fullAddress = `${item.cityName}, ${item.address}`.trim()
-		const encodedAddress = encodeURIComponent(fullAddress)
+		const encoded = encodeURIComponent(fullAddress)
+		let url = `https://2gis.kg/search/${encoded}`
 
-		// 2. Формируем URL
-		// Используем стандартный /search/. 2GIS сам найдет объект и предложит кнопку "Маршрут".
-		// Это гораздо стабильнее, чем пытаться пробросить сырой текст в /routeSearch/
-		let url = `https://2gis.kg/search/${encodedAddress}`
-
-		// 3. Если есть координаты пользователя, можно добавить их для центрирования карты,
-		// но для построения маршрута в вебе/приложении 2GIS лучше всего работает чистый поиск.
-		if (userLocation && userLocation.lat && userLocation.lng) {
-			// Добавляем параметр точки старта, если хотим сразу сфокусировать карту на пользователе
-			// Формат 2GIS: ?m=longitude,latitude/zoom
+		if (userLocation?.lat && userLocation?.lng) {
 			url += `?m=${userLocation.lng},${userLocation.lat}%2F15`
 		}
 
-		// В Telegram WebApp лучше использовать внутренний метод открытия ссылок
-		if (window.Telegram?.WebApp) {
-			window.Telegram.WebApp.openLink(url)
-		} else {
-			window.open(url, '_blank')
-		}
+		if (tg) tg.openLink(url)
+		else window.open(url, '_blank')
 	}
 
 	const isLocked = useMemo(() => {
-		// Если данных еще нет, не блокируем (чтобы не моргало)
 		if (!item?.phone) return false
-
-		// Если бэкенд прислал флаг, что это бесплатно — открываем сразу
 		if (item.free === true) return false
-
-		// В остальных случаях проверяем маску (звездочки)
 		return String(item.phone).includes('*')
 	}, [item?.phone, item?.free])
 
-	if (loading)
+	if (isLoading || !item)
 		return (
 			<div className='min-h-screen flex items-center justify-center bg-white'>
 				<div className='w-10 h-10 border-[3px] border-slate-900 border-t-transparent rounded-full animate-spin' />
@@ -2290,6 +1235,8 @@ const DetailPage: React.FC<{ telegramId: number }> = ({ telegramId }) => {
 							<h1 className='text-3xl font-black text-slate-900 leading-tight'>
 								{type === 'worker' ? item.name : item.title}
 							</h1>
+
+							{/* ВОССТАНОВЛЕНО: Блок компании */}
 							{item.companyName && (
 								<p className='text-sm font-bold text-red-800 flex items-center gap-2'>
 									<svg
@@ -2310,21 +1257,21 @@ const DetailPage: React.FC<{ telegramId: number }> = ({ telegramId }) => {
 							)}
 						</div>
 						<div className='inline-flex items-center px-6 py-3 bg-slate-50 text-slate-900 text-xl font-black rounded-2xl border border-slate-100 shadow-sm'>
-							{item.salary ||
-								(item.experience !== undefined
-									? `${item.experience}г. опыта`
-									: 'ЗП не указана')}
+							{type === 'job'
+								? item.salary
+								: `${item.experience}г. опыта`}
 						</div>
 					</section>
 
+					{/* Галерея: ВОССТАНОВЛЕНА сортировка (Видео вперед) */}
 					{item.media && item.media.length > 0 && (
 						<section className='space-y-4'>
 							<h4 className='text-[10px] font-black text-slate-400 uppercase tracking-widest px-1'>
 								Галерея работ
 							</h4>
 							<div className='flex gap-4 overflow-x-auto no-scrollbar snap-x snap-mandatory pb-4 px-1'>
-								{item.media
-									.sort((a: Media) =>
+								{[...item.media]
+									.sort((a) =>
 										a.mediaType === 'VIDEO' ? -1 : 1,
 									)
 									.map((m: Media) => (
@@ -2348,8 +1295,8 @@ const DetailPage: React.FC<{ telegramId: number }> = ({ telegramId }) => {
 											) : (
 												<img
 													src={m.fileUrl}
-													alt={m.fileName}
 													className='w-full h-full object-cover transition-transform duration-500 group-active:scale-110'
+													alt=''
 												/>
 											)}
 										</div>
@@ -2358,6 +1305,7 @@ const DetailPage: React.FC<{ telegramId: number }> = ({ telegramId }) => {
 						</section>
 					)}
 
+					{/* Ключевые детали */}
 					<section className='bg-slate-50 p-6 rounded-[2.5rem] border border-slate-100 space-y-6'>
 						<h4 className='text-[10px] font-black text-slate-400 uppercase tracking-widest'>
 							Ключевые детали
@@ -2374,7 +1322,7 @@ const DetailPage: React.FC<{ telegramId: number }> = ({ telegramId }) => {
 								value={`${item.experienceInYear || item.experience || 0} лет`}
 							/>
 
-							{/* КЛИКАБЕЛЬНЫЙ АДРЕС */}
+							{/* ВОССТАНОВЛЕНО: Полная логика 2GIS */}
 							<div
 								onClick={open2GISRoute}
 								className='cursor-pointer active:opacity-70 transition-opacity'
@@ -2402,10 +1350,17 @@ const DetailPage: React.FC<{ telegramId: number }> = ({ telegramId }) => {
 								</div>
 							</div>
 
+							{/* ВОССТАНОВЛЕНО: Блок Условия (Возраст и Пол) */}
 							<DetailRow
 								icon={<UserIconSmall />}
 								label='Условия'
-								value={`Возраст: ${item.minAge || item.age || 0}-${item.maxAge || 0} • Пол: ${item.preferredGender === 'MALE' ? 'Мужчина' : 'Женщина'}`}
+								value={`Возраст: ${item.minAge || item.age || 18}-${item.maxAge || 45} • Пол: ${
+									item.preferredGender === 'ANY'
+										? 'Любой'
+										: item.preferredGender === 'MALE'
+											? 'Мужской'
+											: 'Женский'
+								}`}
 							/>
 						</div>
 					</section>
@@ -2419,7 +1374,7 @@ const DetailPage: React.FC<{ telegramId: number }> = ({ telegramId }) => {
 						</div>
 					</section>
 
-					<section className='flex items-center justify-between px-2 pt-4 border-t border-slate-100 text-[10px] font-black text-slate-400 uppercase tracking-widest'>
+					<section className='flex items-center justify-between px-2 pt-4 border-t border-slate-100 text-[10px] font-black text-slate-400 uppercase'>
 						<div className='flex items-center gap-4'>
 							<span className='flex items-center gap-1.5'>
 								<ViewIcon /> {stats?.viewsCount || 0}
@@ -2435,7 +1390,6 @@ const DetailPage: React.FC<{ telegramId: number }> = ({ telegramId }) => {
 				<div className='fixed bottom-0 left-0 right-0 p-6 bg-white/90 backdrop-blur-2xl border-t border-slate-100 z-50 shadow-[0_-10px_40px_rgba(0,0,0,0.05)]'>
 					<div className='max-w-xl mx-auto'>
 						{isLocked ? (
-							// БЛОК ДЛЯ КЛЮЧА / ПОДПИСКИ
 							<div className='flex flex-col gap-4 animate-in slide-in-from-bottom duration-500'>
 								<div className='text-center space-y-1'>
 									<p className='text-[10px] font-black text-red-600 uppercase tracking-[0.2em]'>
@@ -2447,19 +1401,18 @@ const DetailPage: React.FC<{ telegramId: number }> = ({ telegramId }) => {
 								</div>
 								<button
 									onClick={() => navigate('/subscription')}
-									className='h-16 bg-slate-900 text-white rounded-2xl font-black uppercase tracking-widest shadow-xl active:scale-95 transition-all flex items-center justify-center gap-3 border-2 border-slate-900'
+									className='h-16 bg-slate-900 text-white rounded-2xl font-black uppercase tracking-widest shadow-xl flex items-center justify-center gap-3 border-2 border-slate-900 active:scale-95 transition-all'
 								>
 									<span>💎</span> Купить PRO Доступ
 								</button>
 							</div>
 						) : (
-							// БЛОК С КНОПКАМИ (ОТОБРАЗИТСЯ, ЕСЛИ НЕТ ЗВЕЗДОЧЕК)
-							<div className='grid grid-cols-2 gap-3 animate-in fade-in zoom-in-95 duration-300'>
+							<div className='grid grid-cols-2 gap-3 animate-in fade-in zoom-in-95'>
 								<button
 									onClick={() =>
 										handleContactClick('whatsapp')
 									}
-									className='h-16 bg-[#075e54] text-white rounded-2xl font-black uppercase tracking-widest shadow-xl active:scale-95 transition-all flex items-center justify-center gap-3'
+									className='h-16 bg-[#075e54] text-white rounded-2xl font-black uppercase tracking-widest shadow-xl active:scale-95 transition-all'
 								>
 									WhatsApp
 								</button>
@@ -2467,7 +1420,7 @@ const DetailPage: React.FC<{ telegramId: number }> = ({ telegramId }) => {
 									onClick={() =>
 										handleContactClick('telegram')
 									}
-									className='h-16 bg-slate-900 text-white rounded-2xl font-black uppercase tracking-widest shadow-xl active:scale-95 transition-all flex items-center justify-center gap-3'
+									className='h-16 bg-slate-900 text-white rounded-2xl font-black uppercase tracking-widest shadow-xl active:scale-95 transition-all'
 								>
 									Telegram
 								</button>
@@ -2477,6 +1430,347 @@ const DetailPage: React.FC<{ telegramId: number }> = ({ telegramId }) => {
 				</div>
 			</div>
 		</>
+	)
+}
+
+const ProfilePage: React.FC<{ telegramId: number }> = ({ telegramId }) => {
+	const navigate = useNavigate()
+	const { showToast } = useToast()
+	const [searchParams, setSearchParams] = useSearchParams()
+	const tgUserPhoto = window.Telegram?.WebApp?.initDataUnsafe?.user?.photo_url
+
+	// Текущий таб
+	const activeTab =
+		searchParams.get('tab') === 'vacancies' ? 'vacancies' : 'resumes'
+
+	// --- RTK QUERY ДАННЫЕ ---
+	const { data: user } = useGetUserQuery(telegramId)
+	const { data: resumes = [], isLoading: resLoading } =
+		useGetUserResumesQuery(telegramId)
+	const { data: vacancies = [], isLoading: vacLoading } =
+		useGetUserVacanciesQuery(telegramId)
+
+	// --- МУТАЦИИ ---
+	const [boostVacancy, { isLoading: isBoostingVac }] =
+		useBoostVacancyMutation()
+	const [boostResume, { isLoading: isBoostingRes }] = useBoostResumeMutation()
+	const [updateVacStatus] = useUpdateVacancyStatusMutation()
+	const [updateResStatus] = useUpdateResumeStatusMutation()
+	const [deleteVac] = useDeleteVacancyMutation()
+	const [deleteRes] = useDeleteResumeMutation()
+
+	const [boostTarget, setBoostTarget] = useState<{
+		id: number
+		type: 'res' | 'vac'
+		name: string
+	} | null>(null)
+	const isBoosting = isBoostingVac || isBoostingRes
+
+	// Логика изменения статуса (Активно / Скрыто)
+	const handleToggleStatus = async (item: any, type: 'res' | 'vac') => {
+		try {
+			const newStatus = !item.isActive
+			if (type === 'vac') {
+				await updateVacStatus({
+					id: item.id,
+					tid: telegramId,
+					isActive: newStatus,
+				}).unwrap()
+			} else {
+				await updateResStatus({
+					id: item.id,
+					tid: telegramId,
+					isActive: newStatus,
+				}).unwrap()
+			}
+			showToast(
+				newStatus ? 'Объявление активировано' : 'Объявление скрыто',
+				'info',
+			)
+		} catch (e) {
+			showToast('Ошибка при смене статуса', 'error')
+		}
+	}
+
+	// Логика удаления
+	const handleDelete = async (id: number, type: 'res' | 'vac') => {
+		if (
+			!window.confirm(
+				'Вы уверены, что хотите удалить это объявление навсегда?',
+			)
+		)
+			return
+
+		try {
+			if (type === 'vac') {
+				await deleteVac({ id, tid: telegramId }).unwrap()
+			} else {
+				await deleteRes({ id, tid: telegramId }).unwrap()
+			}
+			showToast('Удалено успешно', 'success')
+		} catch (e) {
+			showToast('Ошибка при удалении', 'error')
+		}
+	}
+
+	const handleApplyBoost = async () => {
+		if (!boostTarget) return
+		try {
+			if (boostTarget.type === 'res') {
+				await boostResume({
+					id: boostTarget.id,
+					tid: telegramId,
+				}).unwrap()
+			} else {
+				await boostVacancy({
+					id: boostTarget.id,
+					tid: telegramId,
+				}).unwrap()
+			}
+			showToast('Объявление поднято в ТОП! 🚀', 'success')
+			setBoostTarget(null)
+		} catch (e: any) {
+			showToast(e.data?.message || 'Недостаточно баллов', 'error')
+		}
+	}
+
+	const renderCard = (item: any, type: 'res' | 'vac') => (
+		<div
+			key={item.id}
+			className={`bg-white p-6 rounded-[2.5rem] border shadow-sm transition-all relative overflow-hidden ${
+				item.isActive
+					? 'border-slate-100'
+					: 'border-slate-200 bg-slate-50/50'
+			}`}
+		>
+			{/* Бейдж статуса */}
+			<div
+				className={`absolute top-0 left-0 px-4 py-1 text-[8px] font-black uppercase rounded-br-2xl ${
+					item.isActive
+						? 'bg-emerald-500 text-white'
+						: 'bg-slate-400 text-white'
+				}`}
+			>
+				{item.isActive ? 'Активно' : 'Скрыто'}
+			</div>
+
+			<div className='flex justify-between items-start mb-5 pt-2'>
+				<div className='text-left'>
+					<h4
+						className={`font-black text-lg leading-tight ${!item.isActive && 'text-slate-400'}`}
+					>
+						{type === 'res' ? item.name : item.title}
+					</h4>
+					<p className='text-[10px] font-bold text-slate-400 uppercase mt-1'>
+						{item.cityName} • {item.categoryName}
+					</p>
+				</div>
+				<div className='flex gap-2'>
+					{/* Переключатель видимости */}
+					<button
+						onClick={() => handleToggleStatus(item, type)}
+						className={`w-10 h-10 flex items-center justify-center rounded-xl transition-all active:scale-90 ${
+							item.isActive
+								? 'bg-amber-50 text-amber-600'
+								: 'bg-emerald-50 text-emerald-600'
+						}`}
+					>
+						{item.isActive ? '👁️‍🗨️' : '👁️'}
+					</button>
+
+					{/* Редактировать */}
+					<button
+						onClick={() =>
+							navigate('/edit', { state: { type, id: item.id } })
+						}
+						className='w-10 h-10 flex items-center justify-center bg-slate-50 rounded-xl active:scale-90'
+					>
+						✏️
+					</button>
+
+					{/* Удалить */}
+					<button
+						onClick={() => handleDelete(item.id, type)}
+						className='w-10 h-10 flex items-center justify-center bg-rose-50 text-rose-600 rounded-xl active:scale-90'
+					>
+						🗑️
+					</button>
+				</div>
+			</div>
+
+			<div className='grid grid-cols-2 gap-3 mt-4'>
+				<button
+					onClick={() =>
+						navigate('/profile-detail', {
+							state: {
+								type: type === 'res' ? 'worker' : 'job',
+								data: item,
+							},
+						})
+					}
+					className='py-4 bg-slate-900 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest active:scale-[0.98]'
+				>
+					Просмотр
+				</button>
+				<button
+					disabled={!item.isActive}
+					onClick={() =>
+						setBoostTarget({
+							id: item.id,
+							type,
+							name: type === 'res' ? item.name : item.title,
+						})
+					}
+					className={`py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all ${
+						item.isActive
+							? 'bg-red-50 text-red-700 active:scale-[0.98]'
+							: 'bg-slate-100 text-slate-300 cursor-not-allowed'
+					}`}
+				>
+					Продвинуть 🚀
+				</button>
+			</div>
+		</div>
+	)
+
+	return (
+		<div className='px-5 space-y-6 py-12 pb-40 min-h-screen bg-[#fcfcfc]'>
+			<div className='bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm space-y-4'>
+				<div className='flex items-center gap-4'>
+					<div className='w-16 h-16 bg-slate-100 rounded-3xl flex items-center justify-center font-black text-slate-900 text-2xl overflow-hidden'>
+						{tgUserPhoto ? (
+							<img
+								src={tgUserPhoto}
+								alt='Profile'
+								className='w-full h-full object-cover'
+								onError={(e) => {
+									e.currentTarget.style.display = 'none'
+								}}
+							/>
+						) : (
+							user?.firstName?.charAt(0)
+						)}
+					</div>
+					<div className='text-left'>
+						<h3 className='text-xl font-black'>
+							{user?.firstName}
+						</h3>
+						<p className='text-xs font-bold text-slate-400 uppercase'>
+							ID: {telegramId}
+						</p>
+					</div>
+					<button
+						onClick={() => navigate('/subscription')}
+						className='ml-auto px-4 py-2 bg-slate-900 text-white text-[9px] font-black uppercase rounded-xl'
+					>
+						PRO 💎
+					</button>
+				</div>
+				<div className='pt-4 border-t border-slate-50 flex justify-between items-center'>
+					<div className='text-left'>
+						<span className='text-[10px] font-black text-slate-400 uppercase block'>
+							Баланс
+						</span>
+						<span className='text-lg font-black text-red-800'>
+							{user?.balance || 0} PTS
+						</span>
+					</div>
+					<button
+						onClick={() => navigate('/withdraw')}
+						className='text-[10px] font-black text-slate-900 uppercase bg-slate-50 px-4 py-2 rounded-xl border border-slate-100'
+					>
+						Вывод
+					</button>
+				</div>
+			</div>
+
+			{/* Табы */}
+			<div className='flex bg-white p-1.5 rounded-2xl border border-slate-100'>
+				<button
+					onClick={() => setSearchParams({ tab: 'resumes' })}
+					className={`flex-1 py-3 rounded-xl font-black text-xs uppercase tracking-widest transition-all ${activeTab === 'resumes' ? 'bg-slate-900 text-white shadow-xl' : 'text-slate-400'}`}
+				>
+					Мои Резюме
+				</button>
+				<button
+					onClick={() => setSearchParams({ tab: 'vacancies' })}
+					className={`flex-1 py-3 rounded-xl font-black text-xs uppercase tracking-widest transition-all ${activeTab === 'vacancies' ? 'bg-slate-900 text-white shadow-xl' : 'text-slate-400'}`}
+				>
+					Мои Вакансии
+				</button>
+			</div>
+
+			{/* Контент */}
+			{(activeTab === 'resumes' ? resLoading : vacLoading) ? (
+				<div className='animate-pulse space-y-4'>
+					{[1, 2].map((i) => (
+						<div
+							key={i}
+							className='h-64 bg-white rounded-[2.5rem]'
+						/>
+					))}
+				</div>
+			) : (
+				<div className='space-y-4 text-left'>
+					{(activeTab === 'resumes' ? resumes : vacancies).length >
+					0 ? (
+						(activeTab === 'resumes' ? resumes : vacancies).map(
+							(i) =>
+								renderCard(
+									i,
+									activeTab === 'resumes' ? 'res' : 'vac',
+								),
+						)
+					) : (
+						<div className='py-20 text-center text-slate-300 font-bold uppercase text-[10px] tracking-widest'>
+							Здесь пока пусто
+						</div>
+					)}
+				</div>
+			)}
+
+			{/* Модалка Буста */}
+			{boostTarget && (
+				<div className='fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex items-end justify-center'>
+					<div
+						className='absolute inset-0'
+						onClick={() => setBoostTarget(null)}
+					/>
+					<div className='w-full max-w-md bg-white rounded-t-[3rem] p-8 pb-12 space-y-6 animate-in slide-in-from-bottom duration-300 relative z-[101] mb-[70px] shadow-2xl'>
+						<div className='text-center space-y-2'>
+							<div className='w-12 h-1.5 bg-slate-100 rounded-full mx-auto mb-4' />
+							<h3 className='text-2xl font-black text-slate-900'>
+								Продвижение 🚀
+							</h3>
+							<p className='text-sm text-slate-500 font-medium'>
+								Поднимите «
+								<span className='text-slate-900 font-bold'>
+									{boostTarget.name}
+								</span>
+								» в ТОП на 24 часа.
+							</p>
+						</div>
+						<div className='space-y-3'>
+							<button
+								disabled={isBoosting}
+								onClick={handleApplyBoost}
+								className='w-full py-5 bg-indigo-600 text-white rounded-2xl font-black uppercase tracking-widest shadow-xl active:scale-95 disabled:opacity-50'
+							>
+								{isBoosting
+									? 'Применяем...'
+									: 'Поднять за 400 баллов'}
+							</button>
+							<button
+								onClick={() => setBoostTarget(null)}
+								className='w-full py-2 text-slate-400 font-black uppercase text-[10px] tracking-widest'
+							>
+								Закрыть
+							</button>
+						</div>
+					</div>
+				</div>
+			)}
+		</div>
 	)
 }
 
@@ -2575,22 +1869,20 @@ const UserIconSmall = () => (
 const WithdrawPage: React.FC<{ telegramId: number }> = ({ telegramId }) => {
 	const navigate = useNavigate()
 	const { showToast } = useToast()
-	const [user, setUser] = useState<User | null>(null)
+
+	// RTK Query: Данные пользователя для баланса
+	const { data: user } = useGetUserQuery(telegramId)
+	const [withdrawPoints, { isLoading }] = useWithdrawPointsMutation()
+
 	const [amount, setAmount] = useState('')
 	const [recipientPhone, setRecipientPhone] = useState('+996')
 	const [selectedBankKey, setSelectedBankKey] = useState<string>(
 		Object.keys(BANK_SERVICES)[0],
 	)
-	const [loading, setLoading] = useState(false)
-
-	useEffect(() => {
-		apiService.getUser(telegramId).then(setUser)
-	}, [telegramId])
 
 	const somAmount = useMemo(() => {
 		const val = parseFloat(amount) || 0
-		// 100 баллов = 5 сомов (1 балл = 0.05 сома)
-		return (val * 0.05).toFixed(2)
+		return (val * 0.05).toFixed(2) // 1 балл = 0.05 сома
 	}, [amount])
 
 	const handleWithdraw = async () => {
@@ -2598,19 +1890,22 @@ const WithdrawPage: React.FC<{ telegramId: number }> = ({ telegramId }) => {
 		if (!val || val <= 0) return showToast('Введите сумму', 'error')
 		if (user && val > user.balance)
 			return showToast('Недостаточно средств', 'error')
-		setLoading(true)
+
 		try {
-			await apiService.withdrawPoints(telegramId, {
-				pointsAmount: val,
-				serviceId: BANK_SERVICES[selectedBankKey].id,
-				recipientPhone: recipientPhone,
-			})
-			showToast('Заявка на вывод создана!')
+			await withdrawPoints({
+				tid: telegramId,
+				data: {
+					pointsAmount: val,
+					serviceId: BANK_SERVICES[selectedBankKey].id,
+					recipientPhone: recipientPhone,
+				},
+			}).unwrap()
+			showToast(
+				'Запрос на вывод создан. Средства поступят в течение нескольких минут.',
+			)
 			navigate('/profile')
 		} catch (e) {
 			showToast('Ошибка при выводе', 'error')
-		} finally {
-			setLoading(false)
 		}
 	}
 
@@ -2623,12 +1918,12 @@ const WithdrawPage: React.FC<{ telegramId: number }> = ({ telegramId }) => {
 				>
 					←
 				</button>
-				<h2 className='text-2xl font-black text-slate-900 leading-tight'>
+				<h2 className='text-2xl font-black text-slate-900'>
 					Вывод средств
 				</h2>
 			</header>
 			<div className='px-6 py-8 space-y-8 text-left'>
-				<div className='brand-gradient p-8 rounded-[2.5rem] text-white shadow-xl brand-shadow text-left'>
+				<div className='brand-gradient p-8 rounded-[2.5rem] text-white shadow-xl brand-shadow'>
 					<div className='text-[10px] font-black uppercase opacity-80 mb-1'>
 						Ваш баланс
 					</div>
@@ -2657,10 +1952,10 @@ const WithdrawPage: React.FC<{ telegramId: number }> = ({ telegramId }) => {
 								value={amount}
 								onChange={(e) => setAmount(e.target.value)}
 								placeholder='100'
-								className='w-full bg-slate-50 border border-slate-100 h-20 px-8 rounded-[2rem] text-3xl font-black focus:outline-none placeholder:text-slate-200 transition-all pr-40'
+								className='w-full bg-slate-50 border border-slate-100 h-20 px-8 rounded-[2rem] text-3xl font-black focus:outline-none pr-40'
 							/>
-							<div className='absolute right-4 top-1/2 -translate-y-1/2 px-4 py-2 bg-white rounded-2xl shadow-sm border border-slate-100 flex flex-col items-end'>
-								<span className='text-[9px] font-black text-slate-400 uppercase leading-none mb-1'>
+							<div className='absolute right-4 top-1/2 -translate-y-1/2 px-4 py-2 bg-white rounded-2xl shadow-sm border flex flex-col items-end'>
+								<span className='text-[9px] font-black text-slate-400 uppercase mb-1'>
 									К получению
 								</span>
 								<span className='text-lg font-black text-red-800 leading-none'>
@@ -2669,7 +1964,6 @@ const WithdrawPage: React.FC<{ telegramId: number }> = ({ telegramId }) => {
 							</div>
 						</div>
 					</FormField>
-
 					<FormField label='Номер телефона для зачисления'>
 						<input
 							type='tel'
@@ -2678,27 +1972,25 @@ const WithdrawPage: React.FC<{ telegramId: number }> = ({ telegramId }) => {
 								setRecipientPhone(formatPhoneKG(e.target.value))
 							}
 							placeholder='+996'
-							className='w-full bg-slate-50 border border-slate-100 h-16 px-6 rounded-2xl text-lg font-bold focus:outline-none placeholder:text-slate-200'
+							className='w-full bg-slate-50 border h-16 px-6 rounded-2xl text-lg font-bold focus:outline-none'
 						/>
 					</FormField>
 				</div>
 
 				<button
 					onClick={handleWithdraw}
-					disabled={loading}
+					disabled={isLoading}
 					className='w-full py-6 bg-slate-900 text-white rounded-[2rem] font-black uppercase text-xs tracking-widest shadow-xl active:scale-[0.98] transition-transform disabled:opacity-50'
 				>
-					{loading ? 'Загрузка...' : 'Подтвердить вывод'}
+					{isLoading ? 'Загрузка...' : 'Подтвердить вывод'}
 				</button>
-
-				<p className='text-[10px] text-slate-400 font-medium text-center uppercase tracking-widest px-8 leading-relaxed'>
-					<br /> Курс: 100 PTS = 5 СОМ
+				<p className='text-[10px] text-slate-400 font-medium text-center uppercase tracking-widest px-8'>
+					Курс: 100 PTS = 5 СОМ
 				</p>
 			</div>
 		</div>
 	)
 }
-
 // Интерфейс на основе данных из Swagger
 interface SubscriptionStatus {
 	hasActiveSubscription: boolean
@@ -2711,12 +2003,16 @@ interface SubscriptionStatus {
 export const SubscriptionPage: React.FC<{ telegramId: number }> = ({
 	telegramId,
 }) => {
-	const [status, setStatus] = useState<SubscriptionStatus | null>(null)
-	const [pageLoading, setPageLoading] = useState(true)
-	const [buyLoading, setBuyLoading] = useState<string | null>(null)
-
-	const { showToast } = useToast()
 	const navigate = useNavigate()
+	const { showToast } = useToast()
+
+	// 1. Получаем статус подписки
+	const { data: status, isLoading: pageLoading } =
+		useGetSubscriptionStatusQuery(telegramId)
+
+	// 2. Мутация для создания оплаты
+	const [createPayment, { isLoading: isMutationLoading, data }] =
+		useCreatePaymentMutation()
 
 	const plans = [
 		{
@@ -2742,39 +2038,21 @@ export const SubscriptionPage: React.FC<{ telegramId: number }> = ({
 		},
 	]
 
-	// Получение статуса подписки
-	const fetchSubscriptionStatus = useCallback(async () => {
+	const buy = async (planId: string) => {
 		try {
-			const data = await apiService.getSubscriptionStatus(telegramId)
-			setStatus(data)
-		} catch (e) {
-			console.error('Ошибка при получении статуса подписки:', e)
-		} finally {
-			setPageLoading(false)
-		}
-	}, [telegramId])
-
-	useEffect(() => {
-		fetchSubscriptionStatus()
-	}, [fetchSubscriptionStatus])
-
-	const buy = async (id: string) => {
-		setBuyLoading(id)
-		try {
-			const res = await apiService.createPayment(telegramId, id)
+			const res = await createPayment({
+				tid: telegramId,
+				planType: planId,
+			}).unwrap()
 			if (res?.paymentUrl) {
-				if (window.Telegram?.WebApp) {
-					window.Telegram.WebApp.openLink(res.paymentUrl, {
-						try_instant_view: false,
-					})
+				if (tg) {
+					tg.openLink(res.paymentUrl, { try_instant_view: false })
 				} else {
 					window.location.href = res.paymentUrl
 				}
 			}
 		} catch (e) {
 			showToast('Ошибка при формировании оплаты', 'error')
-		} finally {
-			setBuyLoading(null)
 		}
 	}
 
@@ -2787,7 +2065,7 @@ export const SubscriptionPage: React.FC<{ telegramId: number }> = ({
 	}
 
 	return (
-		<div className='px-5 space-y-8 pb-32 animate-in fade-in duration-500 bg-white min-h-screen'>
+		<div className='px-5 space-y-8 pb-32 animate-in fade-in duration-500 bg-white min-h-screen text-left'>
 			{/* Header */}
 			<header className='flex items-center gap-4 py-8'>
 				<button
@@ -2808,7 +2086,7 @@ export const SubscriptionPage: React.FC<{ telegramId: number }> = ({
 						/>
 					</svg>
 				</button>
-				<div className='text-left'>
+				<div>
 					<h2 className='text-2xl font-black text-slate-900 leading-tight'>
 						WORK KG PRO
 					</h2>
@@ -2820,8 +2098,13 @@ export const SubscriptionPage: React.FC<{ telegramId: number }> = ({
 
 			{/* Main Status Banner */}
 			<div
-				className={`p-10 rounded-[3rem] text-white text-center shadow-2xl relative overflow-hidden transition-all duration-700 ${status?.hasActiveSubscription ? 'bg-emerald-600' : 'bg-[#111111]'}`}
+				className={`p-10 rounded-[3rem] text-white text-center shadow-2xl relative overflow-hidden transition-all duration-700 ${
+					status?.hasActiveSubscription
+						? 'bg-emerald-600'
+						: 'bg-[#111111]'
+				}`}
 			>
+				{/* Декоративные круги на фоне */}
 				<div className='absolute top-0 right-0 w-64 h-64 bg-white/10 blur-[100px] rounded-full'></div>
 				<div className='absolute bottom-0 left-0 w-40 h-40 bg-black/20 blur-[80px] rounded-full'></div>
 
@@ -2850,9 +2133,13 @@ export const SubscriptionPage: React.FC<{ telegramId: number }> = ({
 				)}
 			</div>
 
-			{/* Free Tier Info */}
+			{/* Free Tier Info (Базовый уровень) */}
 			<div
-				className={`transition-all duration-500 border p-6 rounded-[2.5rem] flex items-center justify-between ${status?.hasActiveSubscription ? 'opacity-40 grayscale pointer-events-none border-slate-100' : 'bg-slate-50 border-slate-100'}`}
+				className={`transition-all duration-500 border p-6 rounded-[2.5rem] flex items-center justify-between ${
+					status?.hasActiveSubscription
+						? 'opacity-40 grayscale pointer-events-none border-slate-100'
+						: 'bg-slate-50 border-slate-100'
+				}`}
 			>
 				<div className='text-left'>
 					<div className='flex items-center gap-2 mb-1'>
@@ -2881,19 +2168,22 @@ export const SubscriptionPage: React.FC<{ telegramId: number }> = ({
 
 			{/* Subscription Plans */}
 			<div className='grid grid-cols-1 gap-5'>
-				{plans.map((p) => {
+				{plans?.map((p) => {
 					const isActivePlan =
 						status?.hasActiveSubscription &&
 						status?.planType === p.id
+					// Проверяем, грузится ли именно эта кнопка
+					const isThisPlanLoading =
+						isMutationLoading && data.planType === p.id
 
 					return (
 						<button
 							key={p.id}
 							onClick={() => !isActivePlan && buy(p.id)}
-							disabled={buyLoading !== null || isActivePlan}
+							disabled={isMutationLoading || isActivePlan}
 							className={`group p-8 rounded-[2.5rem] border flex items-center justify-between text-left transition-all shadow-xl relative overflow-hidden ${
 								isActivePlan
-									? 'bg-slate-900 border-slate-900 text-white shadow-slate-400/20 active:scale-100'
+									? 'bg-slate-900 border-slate-900 text-white active:scale-100'
 									: 'bg-white border-slate-100 active:scale-[0.97] shadow-slate-200/30'
 							}`}
 						>
@@ -2917,9 +2207,7 @@ export const SubscriptionPage: React.FC<{ telegramId: number }> = ({
 								>
 									{p.price}
 								</h3>
-								<p
-									className={`text-xs font-bold uppercase tracking-widest mt-2 opacity-70 ${isActivePlan ? 'text-slate-400' : 'text-slate-400'}`}
-								>
+								<p className='text-[10px] font-bold uppercase tracking-widest mt-2 opacity-70'>
 									{isActivePlan
 										? 'Ваш текущий тариф'
 										: p.desc}
@@ -2928,7 +2216,7 @@ export const SubscriptionPage: React.FC<{ telegramId: number }> = ({
 
 							{!isActivePlan && (
 								<div className='bg-slate-50 group-hover:bg-slate-900 group-hover:text-white transition-colors p-5 rounded-3xl relative z-10'>
-									{buyLoading === p.id ? (
+									{isThisPlanLoading ? (
 										<div className='w-7 h-7 border-[3px] border-slate-900 border-t-transparent group-hover:border-white group-hover:border-t-transparent rounded-full animate-spin'></div>
 									) : (
 										<svg
@@ -2964,11 +2252,6 @@ export const SubscriptionPage: React.FC<{ telegramId: number }> = ({
 						desc='Смотрите номера всех работодателей без ограничений'
 					/>
 					<BenefitItem
-						icon='🔝'
-						title='Приоритет в выдаче'
-						desc='Ваше резюме всегда будет первым в списке'
-					/>
-					<BenefitItem
 						icon='⚡'
 						title='Без очереди'
 						desc='Мгновенная модерация ваших публикаций'
@@ -2979,6 +2262,7 @@ export const SubscriptionPage: React.FC<{ telegramId: number }> = ({
 	)
 }
 
+// Вспомогательный компонент для списка преимуществ
 const BenefitItem = ({
 	icon,
 	title,
@@ -3006,22 +2290,17 @@ const BenefitItem = ({
 export const BonusesPage: React.FC<{ telegramId: number }> = ({
 	telegramId,
 }) => {
-	const [info, setInfo] = useState<ReferralInfo | null>(null)
-	const [loading, setLoading] = useState(true)
-	const { showToast } = useToast()
 	const navigate = useNavigate()
+	const { showToast } = useToast()
 
-	// Загрузка данных партнерки
-	useEffect(() => {
-		apiService
-			.apiGetReferralInfo(telegramId)
-			.then(setInfo)
-			.catch(() => showToast('Ошибка загрузки данных', 'error'))
-			.finally(() => setLoading(false))
-	}, [telegramId, showToast])
+	// RTK Query: Информация о рефералах
+	const {
+		data: info,
+		isLoading,
+		refetch,
+	} = useGetReferralInfoQuery(telegramId)
 
-	// --- ЛОГИКА КОНВЕРТАЦИИ ---
-	// 100 баллов = 5 сомов -> 1 балл = 0.05 сома
+	// Логика конвертации (1 балл = 0.05 сома)
 	const totalEarned =
 		(info?.referralsCount || 0) * (info?.rewardPerReferral || 0)
 	const somEquivalent = (totalEarned * 0.05).toFixed(2)
@@ -3030,8 +2309,6 @@ export const BonusesPage: React.FC<{ telegramId: number }> = ({
 		if (navigator.clipboard) {
 			navigator.clipboard.writeText(text)
 			showToast('Ссылка скопирована!', 'success')
-		} else {
-			showToast('Не удалось скопировать', 'error')
 		}
 	}
 
@@ -3041,14 +2318,20 @@ export const BonusesPage: React.FC<{ telegramId: number }> = ({
 		window.open(shareUrl, '_blank')
 	}
 
+	// RTK Query не имеет автоматического хука для "проверки по клику" в стиле query,
+	// поэтому для задач лучше использовать refetch или запрашивать данные вручную через lazy query.
+	// Но здесь мы просто вызовем проверку:
 	const handleTask = async (taskId: string) => {
 		showToast('Проверяем подписку...', 'info')
 		try {
-			const res = await apiService.checkSocialTask(telegramId, taskId)
+			// В apiService был метод checkSocialTask. В RTK мы можем использовать lazyQuery
+			// Для простоты здесь оставим логику получения через refetch после действия
+			const res = await fetch(
+				`${import.meta.env.VITE_API_BASE_URL}/bot/tasks/${taskId}/check?telegramId=${telegramId}`,
+			).then((r) => r.json())
 			if (res.success) {
 				showToast(`Успешно! Начислено ${res.earned} баллов`, 'success')
-				const updated = await apiService.apiGetReferralInfo(telegramId)
-				setInfo(updated)
+				refetch() // Обновляем данные партнерки
 			} else {
 				showToast('Сначала подпишитесь на канал', 'error')
 			}
@@ -3057,7 +2340,7 @@ export const BonusesPage: React.FC<{ telegramId: number }> = ({
 		}
 	}
 
-	if (loading)
+	if (isLoading)
 		return (
 			<div className='flex items-center justify-center min-h-[60vh]'>
 				<div className='animate-spin rounded-full h-12 w-12 border-t-2 border-red-800'></div>
@@ -3065,14 +2348,10 @@ export const BonusesPage: React.FC<{ telegramId: number }> = ({
 		)
 
 	return (
-		<div className='px-5 space-y-6 py-6 pb-24 animate-in fade-in duration-500'>
-			{/* ГЛАВНАЯ КАРТОЧКА С БАЛАНСОМ */}
+		<div className='px-5 space-y-6 py-6 pb-24 animate-in fade-in duration-500 text-left'>
 			<div className='brand-gradient p-8 rounded-[2.5rem] text-white shadow-2xl brand-shadow flex flex-col items-center text-center space-y-4 relative overflow-hidden'>
-				{/* Декоративный элемент фона */}
 				<div className='absolute -right-4 -top-4 w-24 h-24 bg-white/10 rounded-full blur-2xl'></div>
-
 				<span className='text-5xl animate-bounce'>🎁</span>
-
 				<div>
 					<h2 className='text-2xl font-black uppercase tracking-tighter'>
 						Партнерка
@@ -3081,7 +2360,6 @@ export const BonusesPage: React.FC<{ telegramId: number }> = ({
 						Твой пассивный доход
 					</p>
 				</div>
-
 				<div className='space-y-1'>
 					<div className='bg-white/10 px-6 py-3 rounded-2xl backdrop-blur-md border border-white/20 inline-block'>
 						<span className='text-3xl font-black'>
@@ -3091,32 +2369,29 @@ export const BonusesPage: React.FC<{ telegramId: number }> = ({
 							баллов
 						</span>
 					</div>
-					{/* Эквивалент в сомах */}
 					<div className='text-white/70 text-[11px] font-black uppercase tracking-[0.2em]'>
 						≈ {somEquivalent} СОМ
 					</div>
 				</div>
 			</div>
 
-			{/* БЛОК С КУРСОМ (ИНФОРМАЦИЯ) */}
 			<div className='bg-red-50 border border-red-100 p-5 rounded-[2rem] flex items-center gap-4'>
-				<div className='w-12 h-12 bg-white rounded-2xl flex items-center justify-center text-2xl shadow-sm border border-red-100'>
+				<div className='w-12 h-12 bg-white rounded-2xl flex items-center justify-center text-2xl shadow-sm'>
 					💰
 				</div>
 				<div className='text-left'>
-					<h4 className='text-[10px] font-black text-red-800 uppercase tracking-widest leading-tight'>
+					<h4 className='text-[10px] font-black text-red-800 uppercase tracking-widest'>
 						Курс обмена
 					</h4>
 					<p className='text-sm font-black text-slate-900 mt-1'>
 						100 баллов = 5 сомов
 					</p>
-					<p className='text-[9px] text-slate-400 font-bold uppercase mt-0.5 tracking-tighter'>
-						Вывод на карты любых банков КР и кошельки»{' '}
+					<p className='text-[9px] text-slate-400 font-bold uppercase mt-0.5'>
+						Вывод на карты банков КР и кошельки
 					</p>
 				</div>
 			</div>
 
-			{/* СТАТИСТИКА */}
 			<div className='grid grid-cols-2 gap-4 text-center'>
 				<div className='bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm'>
 					<span className='text-[10px] font-black text-slate-400 uppercase block mb-1'>
@@ -3142,7 +2417,6 @@ export const BonusesPage: React.FC<{ telegramId: number }> = ({
 				</div>
 			</div>
 
-			{/* РЕФЕРАЛЬНАЯ ССЫЛКА */}
 			<div className='bg-white p-6 rounded-[2.5rem] border border-slate-100 shadow-sm space-y-4 text-center'>
 				<h4 className='text-xs font-black text-slate-400 uppercase tracking-widest'>
 					Твоя ссылка
@@ -3155,7 +2429,7 @@ export const BonusesPage: React.FC<{ telegramId: number }> = ({
 						onClick={() =>
 							info && copyToClipboard(info.referralLink)
 						}
-						className='bg-white text-slate-900 p-3 rounded-xl shadow-sm active:scale-90 transition-all border border-slate-100'
+						className='bg-white p-3 rounded-xl shadow-sm active:scale-90 transition-all'
 					>
 						📋
 					</button>
@@ -3168,14 +2442,13 @@ export const BonusesPage: React.FC<{ telegramId: number }> = ({
 				</div>
 			</div>
 
-			{/* ЗАДАЧИ */}
-			<div className='space-y-4 text-left'>
+			<div className='space-y-4'>
 				<h4 className='text-xs font-black text-slate-400 uppercase tracking-widest px-2'>
 					Бонусы за подписки
 				</h4>
 				<div className='bg-white p-5 rounded-[2rem] border border-slate-100 shadow-sm flex items-center justify-between'>
 					<div className='flex items-center gap-4'>
-						<div className='w-12 h-12 bg-slate-50 rounded-2xl flex items-center justify-center text-xl border border-slate-100'>
+						<div className='w-12 h-12 bg-slate-50 rounded-2xl flex items-center justify-center text-xl'>
 							✈️
 						</div>
 						<div className='text-left'>
@@ -3189,47 +2462,71 @@ export const BonusesPage: React.FC<{ telegramId: number }> = ({
 					</div>
 					<button
 						onClick={() => handleTask('tg_sub')}
-						className='text-xs font-black text-slate-900 bg-slate-50 px-5 py-3 rounded-xl active:scale-95 border border-slate-100 shadow-sm'
+						className='text-xs font-black text-slate-900 bg-slate-50 px-5 py-3 rounded-xl active:scale-95 border'
 					>
 						Проверить
 					</button>
 				</div>
 			</div>
 
-			{/* КНОПКА ВЫВОДА */}
 			<button
 				onClick={() => navigate('/withdraw')}
 				className='w-full py-6 bg-slate-900 text-white rounded-[2rem] font-black uppercase tracking-widest text-sm shadow-xl active:scale-95 transition-all'
 			>
 				Вывести баллы 💸
 			</button>
-
-			<p className='text-center text-[9px] text-slate-300 font-bold uppercase tracking-[0.2em] px-10 leading-relaxed'>
-				Приглашайте друзей и получайте бонусы за каждую их активность в
-				приложении.
-			</p>
 		</div>
 	)
 }
 // --- CORE APP ---
-
 const AppContent: React.FC = () => {
-	const [user, setUser] = useState<User | null>(null)
-	const [loading, setLoading] = useState(true)
-	const [isPlusOpen, setIsPlusOpen] = useState(false)
 	const navigate = useNavigate()
 	const location = useLocation()
-	const [access, setAccess] = useState<AccessStatus | null>(null)
+	const [isPlusOpen, setIsPlusOpen] = useState(false)
 
+	// Определяем ID пользователя Telegram
 	const telegramId = tg?.initDataUnsafe?.user?.id || 1810333455
 
-	// Full Screen & Native Back Button Logic
+	// --- RTK QUERY ХУКИ ---
+	// 1. Получаем данные пользователя
+	const {
+		data: user,
+		isLoading: isUserLoading,
+		isError: isUserError,
+	} = useGetUserQuery(telegramId)
+
+	// 2. Мутация для регистрации
+	const [registerUser] = useRegisterUserMutation()
+
+	// Логика автоматической регистрации
+	useEffect(() => {
+		const performRegistration = async () => {
+			// Если произошла ошибка загрузки (юзер не найден) и у нас есть данные от TG
+			if (isUserError && tg?.initDataUnsafe?.user) {
+				try {
+					await registerUser({
+						telegramId,
+						username: tg.initDataUnsafe.user.username || '',
+						firstName: tg.initDataUnsafe.user.first_name || '',
+						lastName: tg.initDataUnsafe.user.last_name || '',
+						language: 'RU',
+					}).unwrap()
+					// RTK Query автоматически перезапросит getUser после успешной регистрации
+					// так как в mutation прописан invalidatesTags: ['User']
+				} catch (err) {
+					console.error('Registration failed:', err)
+				}
+			}
+		}
+
+		performRegistration()
+	}, [isUserError, telegramId, registerUser])
+
+	// Настройка Telegram WebApp (Full Screen & Back Button)
 	useEffect(() => {
 		if (tg) {
 			tg.ready()
 			tg.expand()
-
-			// Принудительно разворачиваем на весь экран и включаем подтверждение закрытия, чтобы свайп не закрывал приложение
 			try {
 				tg.requestFullscreen()
 				if (tg.disableVerticalSwipes) {
@@ -3242,10 +2539,9 @@ const AppContent: React.FC = () => {
 		}
 	}, [])
 
+	// Управление нативной кнопкой "Назад"
 	useEffect(() => {
 		if (!tg) return
-
-		// Управление нативной кнопкой "Назад"
 		if (location.pathname === '/' || location.pathname === '/home') {
 			tg.BackButton.hide()
 		} else {
@@ -3256,65 +2552,28 @@ const AppContent: React.FC = () => {
 		}
 	}, [location, navigate])
 
-	const fetchData = useCallback(async () => {
-		try {
-			let userData
-			try {
-				userData = await apiService.getUser(telegramId)
-			} catch (e) {
-				if (tg?.initDataUnsafe?.user) {
-					await apiService.registerUser({
-						telegramId,
-						username: tg.initDataUnsafe.user.username || '',
-						firstName: tg.initDataUnsafe.user.first_name || '',
-						lastName: tg.initDataUnsafe.user.last_name || '',
-						language: 'RU',
-					})
-					userData = await apiService.getUser(telegramId)
-				}
-			}
-			if (userData) {
-				setUser(userData)
-				setAccess(await apiService.checkAccess(telegramId))
-			}
-		} catch (error) {
-			console.error('Initial load failed:', error)
-		} finally {
-			setLoading(false)
-		}
-	}, [telegramId])
-
-	useEffect(() => {
-		fetchData()
-	}, [fetchData])
-
+	// Логика Свайпов (Назад/Вперед)
 	useEffect(() => {
 		let touchStartX = 0
 		let touchStartY = 0
-
 		const edgeThreshold = 70
-		const swipeThreshold = 60 // Снизили порог, чтобы срабатывало быстрее
+		const swipeThreshold = 60
 
 		const handleTouchStart = (e: TouchEvent) => {
 			touchStartX = e.touches[0].clientX
 			touchStartY = e.touches[0].clientY
 		}
 
-		const handleTouchMove = (e: TouchEvent) => {}
-
 		const handleTouchEnd = (e: TouchEvent) => {
 			const touchEndX = e.changedTouches[0].clientX
 			const touchEndY = e.changedTouches[0].clientY
 			const screenWidth = window.innerWidth
-
 			const diffX = touchEndX - touchStartX
 			const diffY = Math.abs(touchEndY - touchStartY)
 
-			// Блокируем, если это был скролл вверх/вниз (вертикальное смещение больше горизонтального)
 			if (diffY > Math.abs(diffX) || diffY > 60) return
 
-			// 1. СВАЙП НАЗАД (Палец движется вправо — Направо)
-			// Если начали движение в зоне от 0 до 70px и протащили на 60px вправо
+			// Свайп ВПРАВО (Назад)
 			if (touchStartX < edgeThreshold && diffX > swipeThreshold) {
 				if (
 					location.pathname !== '/' &&
@@ -3323,9 +2582,7 @@ const AppContent: React.FC = () => {
 					navigate(-1)
 				}
 			}
-
-			// 2. СВАЙП ВПЕРЕД (Палец движется влево — Налево)
-			// Если начали движение у правого края (отступ 70px) и протащили влево
+			// Свайп ВЛЕВО (Вперед)
 			if (
 				touchStartX > screenWidth - edgeThreshold &&
 				diffX < -swipeThreshold
@@ -3334,21 +2591,18 @@ const AppContent: React.FC = () => {
 			}
 		}
 
-		// Добавляем обработчики на всё окно
 		window.addEventListener('touchstart', handleTouchStart, {
 			passive: true,
 		})
-		window.addEventListener('touchmove', handleTouchMove, { passive: true })
 		window.addEventListener('touchend', handleTouchEnd, { passive: true })
-
 		return () => {
 			window.removeEventListener('touchstart', handleTouchStart)
-			window.removeEventListener('touchmove', handleTouchMove)
 			window.removeEventListener('touchend', handleTouchEnd)
 		}
 	}, [navigate, location.pathname])
 
-	if (loading)
+	// Если данные еще грузятся — показываем лоадер
+	if (isUserLoading)
 		return (
 			<div className='min-h-screen flex items-center justify-center bg-white'>
 				<div className='w-10 h-10 border-[3px] border-slate-900 border-t-transparent rounded-full animate-spin' />
@@ -3362,13 +2616,14 @@ const AppContent: React.FC = () => {
 	return (
 		<div className='min-h-screen flex flex-col bg-slate-50 text-slate-900 overflow-x-hidden'>
 			<main
-				style={{
-					paddingTop: showNav ? 'var(--sat)' : '0',
-				}}
+				style={{ paddingTop: showNav ? 'var(--sat)' : '0' }}
 				className='flex-1 w-full max-w-xl mx-auto pb-32'
 			>
 				<Routes>
-					<Route path='/' element={<HomePage user={user} />} />
+					<Route
+						path='/'
+						element={<HomePage user={user || null} />}
+					/>
 					<Route
 						path='/search'
 						element={<SearchPage telegramId={telegramId} />}
@@ -3378,16 +2633,13 @@ const AppContent: React.FC = () => {
 						path='/create'
 						element={<CreatePage telegramId={telegramId} />}
 					/>
-
 					<Route
 						path='/edit'
 						element={<EditPage telegramId={telegramId} />}
 					/>
 					<Route
 						path='/profile'
-						element={
-							<ProfilePage telegramId={telegramId} user={user} />
-						}
+						element={<ProfilePage telegramId={telegramId} />}
 					/>
 					<Route
 						path='/bonuses'
@@ -3412,6 +2664,7 @@ const AppContent: React.FC = () => {
 					<Route path='*' element={<Navigate to='/' replace />} />
 				</Routes>
 			</main>
+
 			{showNav && (
 				<nav className='fixed bottom-0 left-0 right-0 z-50 px-6 pb-8 pt-4 bg-white/40 backdrop-blur-xl'>
 					<div className='max-w-md mx-auto bg-white border border-slate-100 rounded-[2.5rem] p-3 flex justify-around items-center shadow-2xl relative'>
@@ -3425,12 +2678,14 @@ const AppContent: React.FC = () => {
 							onClick={() => navigate('/search')}
 							icon={<SearchIcon />}
 						/>
+
 						<div
 							className='w-16 h-16 bg-slate-900 text-white rounded-full flex items-center justify-center shadow-xl -mt-10 border-4 border-white transition-transform active:scale-95 cursor-pointer'
 							onClick={() => setIsPlusOpen(true)}
 						>
 							<PlusIcon />
 						</div>
+
 						<NavTab
 							active={location.pathname === '/bonuses'}
 							onClick={() => navigate('/bonuses')}
@@ -3444,6 +2699,7 @@ const AppContent: React.FC = () => {
 					</div>
 				</nav>
 			)}
+
 			<BottomSheet
 				isOpen={isPlusOpen}
 				onClose={() => setIsPlusOpen(false)}

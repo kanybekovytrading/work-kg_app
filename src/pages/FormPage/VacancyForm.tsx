@@ -2,11 +2,14 @@ import React, { useEffect, useState } from 'react'
 import { useForm, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { VacancyFormData, vacancySchema, formatPhoneKG } from './schemas'
-import { apiService } from '../../../apiService'
+// ИМПОРТИРУЕМ ХУКИ RTK QUERY
+import {
+	useGetCategoriesQuery,
+	useGetSubcategoriesQuery,
+} from '../../store/store'
 import { FormField } from '.'
 import { AddressAutocomplete2GIS, ElegantSelect } from '../../../App'
 
-// Типы для справочников
 interface BaseEntity {
 	id: number
 	name: string
@@ -17,7 +20,6 @@ interface Sphere extends BaseEntity {
 }
 
 interface Props {
-	// Partial позволяет передавать неполные данные, но мы ожидаем совпадение с типами Zod
 	initialData?: Partial<VacancyFormData> | null
 	onSubmit: (data: VacancyFormData) => void
 	onMediaChange: (photos: File[], videos: File[]) => void
@@ -44,8 +46,8 @@ export const VacancyForm: React.FC<Props> = ({
 		sphereId: 0,
 		categoryId: 0,
 		subcategoryId: 0,
-		minAge: 18,
-		maxAge: 45,
+		minAge: undefined,
+		maxAge: undefined,
 		preferredGender: 'ANY',
 		phone: '+996',
 		experienceInYear: 0,
@@ -58,6 +60,7 @@ export const VacancyForm: React.FC<Props> = ({
 		latitude: null,
 		longitude: null,
 	}
+
 	const {
 		control,
 		handleSubmit,
@@ -73,37 +76,35 @@ export const VacancyForm: React.FC<Props> = ({
 		} as VacancyFormData,
 	})
 
-	const [categories, setCategories] = useState<BaseEntity[]>([])
-	const [subcategories, setSubcategories] = useState<BaseEntity[]>([])
 	const [selectedPhotos, setSelectedPhotos] = useState<File[]>([])
 	const [selectedVideos, setSelectedVideos] = useState<File[]>([])
 
 	const selectedSphere = watch('sphereId')
 	const selectedCategory = watch('categoryId')
 
+	// --- RTK QUERY ВЗАМЕН СТАРЫХ EFFECT-ОВ ---
+
+	// Загрузка категорий (автоматически запустится при изменении selectedSphere)
+	const { data: categories = [], isFetching: isCatLoading } =
+		useGetCategoriesQuery(
+			{ tid: telegramId, sid: selectedSphere },
+			{ skip: selectedSphere === 0 }, // Не делать запрос, если сфера не выбрана
+		)
+
+	// Загрузка подкатегорий
+	const { data: subcategories = [], isFetching: isSubCatLoading } =
+		useGetSubcategoriesQuery(
+			{ tid: telegramId, cid: selectedCategory },
+			{ skip: selectedCategory === 0 }, // Не делать запрос, если категория не выбрана
+		)
+
 	useEffect(() => {
-		if (initialData) {
-			reset(initialData)
-		}
+		if (initialData) reset(initialData)
 	}, [initialData, reset])
 
 	useEffect(() => {
 		onMediaChange(selectedPhotos, selectedVideos)
 	}, [selectedPhotos, selectedVideos, onMediaChange])
-
-	useEffect(() => {
-		if (selectedSphere > 0)
-			apiService
-				.getCategories(telegramId, selectedSphere)
-				.then((res: BaseEntity[]) => setCategories(res))
-	}, [selectedSphere, telegramId])
-
-	useEffect(() => {
-		if (selectedCategory > 0)
-			apiService
-				.getSubcategories(telegramId, selectedCategory)
-				.then((res: BaseEntity[]) => setSubcategories(res))
-	}, [selectedCategory, telegramId])
 
 	return (
 		<form onSubmit={handleSubmit(onSubmit)} className='space-y-6'>
@@ -121,7 +122,9 @@ export const VacancyForm: React.FC<Props> = ({
 				/>
 			</FormField>
 
+			{/* Блок возраста и пола остается без изменений */}
 			<div className='grid grid-cols-2 gap-4'>
+				{/* Мин. возраст */}
 				<FormField label='Мин. возраст' error={errors.minAge?.message}>
 					<Controller
 						name='minAge'
@@ -129,19 +132,28 @@ export const VacancyForm: React.FC<Props> = ({
 						render={({ field }) => (
 							<input
 								type='number'
-								value={field.value}
-								onChange={(e) =>
-									field.onChange(
-										e.target.value
-											? Number(e.target.value)
-											: 0,
-									)
+								// Используем абстрактное сравнение или проверку на наличие
+								value={
+									field.value === 0 ||
+									field.value === undefined ||
+									field.value === null
+										? ''
+										: field.value
 								}
+								onChange={(e) => {
+									const val = e.target.value
+									// Важно: передаем именно undefined при пустой строке
+									field.onChange(
+										val === '' ? undefined : Number(val),
+									)
+								}}
 								className={inputClass}
 							/>
 						)}
 					/>
 				</FormField>
+
+				{/* Макс. возраст */}
 				<FormField label='Макс. возраст' error={errors.maxAge?.message}>
 					<Controller
 						name='maxAge'
@@ -149,14 +161,21 @@ export const VacancyForm: React.FC<Props> = ({
 						render={({ field }) => (
 							<input
 								type='number'
-								value={field.value}
-								onChange={(e) =>
-									field.onChange(
-										e.target.value
-											? Number(e.target.value)
-											: 0,
-									)
+								// Используем абстрактное сравнение или проверку на наличие
+								value={
+									field.value === 0 ||
+									field.value === undefined ||
+									field.value === null
+										? ''
+										: field.value
 								}
+								onChange={(e) => {
+									const val = e.target.value
+									// Важно: передаем именно undefined при пустой строке
+									field.onChange(
+										val === '' ? undefined : Number(val),
+									)
+								}}
 								className={inputClass}
 							/>
 						)}
@@ -169,7 +188,6 @@ export const VacancyForm: React.FC<Props> = ({
 				control={control}
 				render={({ field }) => (
 					<ElegantSelect
-						placeholder=''
 						label='Кого вы ищете?'
 						value={field.value}
 						options={[
@@ -177,25 +195,24 @@ export const VacancyForm: React.FC<Props> = ({
 							{ id: 'MALE', name: 'Мужской', icon: '👨' },
 							{ id: 'FEMALE', name: 'Женский', icon: '👩' },
 						]}
-						// Приведение типа здесь безопасно, так как мы знаем опции
-						onChange={(val) =>
-							field.onChange(val as 'ANY' | 'MALE' | 'FEMALE')
-						}
+						onChange={(val) => field.onChange(val)}
+						placeholder=''
 					/>
 				)}
 			/>
 
+			{/* БЛОК СЕЛЕКТОРОВ (ГДЕ БЫЛА ОПТИМИЗАЦИЯ) */}
 			<div className='space-y-6 p-6 bg-slate-50 rounded-[2.5rem] border border-slate-100'>
 				<Controller
 					name='cityId'
 					control={control}
 					render={({ field }) => (
 						<ElegantSelect
-							placeholder=''
 							label='Город'
 							value={field.value}
 							options={cities}
 							onChange={field.onChange}
+							placeholder=''
 						/>
 					)}
 				/>
@@ -204,7 +221,6 @@ export const VacancyForm: React.FC<Props> = ({
 					control={control}
 					render={({ field }) => (
 						<ElegantSelect
-							placeholder=''
 							label='Сфера'
 							value={field.value}
 							options={spheres}
@@ -213,45 +229,64 @@ export const VacancyForm: React.FC<Props> = ({
 								setValue('categoryId', 0)
 								setValue('subcategoryId', 0)
 							}}
+							placeholder=''
 						/>
 					)}
 				/>
+
+				{/* Категории с индикацией загрузки */}
 				{selectedSphere > 0 && (
 					<Controller
 						name='categoryId'
 						control={control}
 						render={({ field }) => (
-							<ElegantSelect
-								placeholder=''
-								label='Категория'
-								value={field.value}
-								options={categories}
-								onChange={(val) => {
-									field.onChange(val)
-									setValue('subcategoryId', 0)
-								}}
-							/>
+							<div className={isCatLoading ? 'opacity-60' : ''}>
+								<ElegantSelect
+									label='Категория'
+									value={field.value}
+									options={categories}
+									onChange={(val) => {
+										field.onChange(val)
+										setValue('subcategoryId', 0)
+									}}
+									placeholder={
+										isCatLoading
+											? 'Загрузка...'
+											: 'Выберите категорию'
+									}
+								/>
+							</div>
 						)}
 					/>
 				)}
+
+				{/* Подкатегории с индикацией загрузки */}
 				{selectedCategory > 0 && subcategories.length > 0 && (
 					<Controller
 						name='subcategoryId'
 						control={control}
 						render={({ field }) => (
-							<ElegantSelect
-								placeholder=''
-								label='Подкатегория'
-								// Если subcategoryId undefined/null, ставим 0 для селекта
-								value={field.value ?? 0}
-								options={subcategories}
-								onChange={field.onChange}
-							/>
+							<div
+								className={isSubCatLoading ? 'opacity-60' : ''}
+							>
+								<ElegantSelect
+									label='Подкатегория'
+									value={field.value ?? 0}
+									options={subcategories}
+									onChange={field.onChange}
+									placeholder={
+										isSubCatLoading
+											? 'Загрузка...'
+											: 'Выберите подкатегорию'
+									}
+								/>
+							</div>
 						)}
 					/>
 				)}
 			</div>
 
+			{/* Остальные поля формы (медиа, зарплата, адрес и т.д.) остаются без изменений */}
 			<div className='space-y-4'>
 				<label className='block text-sm font-bold text-slate-700 ml-1'>
 					Фото и Видео
@@ -347,15 +382,16 @@ export const VacancyForm: React.FC<Props> = ({
 						render={({ field }) => (
 							<input
 								type='number'
-								value={field.value}
-								onChange={(e) =>
+								// Исправлено: убираем принудительный 0 при отображении
+								value={field.value === 0 ? '' : field.value}
+								onChange={(e) => {
+									const val = e.target.value
+									// Исправлено: позволяем полю быть пустым при вводе
 									field.onChange(
-										e.target.value
-											? Number(e.target.value)
-											: 0,
+										val === '' ? '' : Number(val),
 									)
-								}
-								placeholder='0'
+								}}
+								placeholder='Напишите свой опыт'
 								className={inputClass}
 							/>
 						)}
@@ -377,7 +413,6 @@ export const VacancyForm: React.FC<Props> = ({
 						)}
 					/>
 				</FormField>
-
 				<FormField label='Компания' error={errors.companyName?.message}>
 					<Controller
 						name='companyName'
@@ -395,11 +430,7 @@ export const VacancyForm: React.FC<Props> = ({
 				render={({ field }) => (
 					<AddressAutocomplete2GIS
 						value={field.value || ''}
-						onChange={(d: {
-							address: string
-							lat: number
-							lng: number
-						}) => {
+						onChange={(d) => {
 							setValue('address', d.address)
 							setValue('latitude', d.lat)
 							setValue('longitude', d.lng)
