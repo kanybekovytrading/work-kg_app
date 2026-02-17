@@ -564,59 +564,47 @@ const FormField: React.FC<{ label: string; children: React.ReactNode }> = ({
 	</div>
 )
 
-// --- PAGES ---
 const HomePage: React.FC<{ user: User | null }> = ({ user }) => {
 	const navigate = useNavigate()
 	const telegramId = user?.telegramId || 0
-
-	// RTK Query вместо useEffect
 	const { data: recommendations = [], isLoading } =
 		useGetRecommendedVacanciesQuery(
 			{ tid: telegramId, limit: 10 },
 			{ skip: !telegramId },
 		)
 
-	const renderSalary = (salary: string) => {
-		if (!salary || salary.trim() === '') return 'ЗП не указана'
-		const s = String(salary).trim()
-		if (/[а-яА-Яa-zA-Z]/.test(s)) return s
-		return `${s.replace(/\B(?=(\d{3})+(?!\d))/g, ' ')} сом`
-	}
-
 	const spheres = [
 		{ id: 1, name: 'IT-сфера', icon: '💻' },
 		{ id: 2, name: 'Продажи', icon: '🏪' },
 		{ id: 3, name: 'Строительство', icon: '🏗' },
 		{ id: 4, name: 'Маркетинг', icon: '📈' },
-		{ id: 5, name: 'Швейная отрасль', icon: '🧵' },
+		{ id: 5, name: 'Швейная', icon: '🧵' },
 		{ id: 6, name: 'Логистика', icon: '🚚' },
 		{ id: 7, name: 'Общепит', icon: '☕️' },
 	]
 
 	return (
 		<div className='pb-40 animate-in fade-in duration-500 bg-white min-h-screen main-content-offset'>
-			<header className='px-6 pb-4 flex items-center justify-between sticky top-0 bg-white/90 backdrop-blur-md z-40 border-b border-slate-50'>
-				<Logo />
-				<button className='w-10 h-10 bg-slate-50 flex items-center justify-center rounded-xl relative active:scale-95 transition-transform'>
-					<BellIcon />
-					<div className='absolute top-3 right-3 w-1.5 h-1.5 bg-red-700 rounded-full border border-white'></div>
-				</button>
+			<header className='px-6 pb-4 pt-4 flex items-center justify-between sticky top-0 bg-white/90 backdrop-blur-md z-40 border-b border-slate-50'>
+				<div className='flex items-center gap-2 font-black text-2xl tracking-tighter'>
+					<span className='text-slate-900'>WORK</span>
+					<span className='text-red-700'>KG</span>
+				</div>
 			</header>
 
-			<LocationBanner />
-
+			{/* Bento Action Cards */}
 			<div className='px-6 mt-6 space-y-4 text-left'>
 				<div
 					onClick={() =>
 						navigate('/create', { state: { type: 'res' } })
 					}
-					className='brand-gradient p-6 rounded-[2rem] text-white shadow-xl brand-shadow active:scale-[0.98] transition-all relative overflow-hidden cursor-pointer'
+					className='brand-gradient p-6 rounded-[2.2rem] text-white shadow-xl shadow-red-100 active:scale-[0.98] transition-all relative overflow-hidden cursor-pointer'
 				>
-					<div className='absolute -right-4 -bottom-4 w-24 h-24 bg-white/10 rounded-full blur-2xl'></div>
-					<h3 className='text-xl font-black uppercase tracking-tight'>
+					<div className='absolute -right-4 -bottom-4 w-32 h-32 bg-white/10 rounded-full blur-3xl'></div>
+					<h3 className='text-2xl font-black uppercase tracking-tight'>
 						Начни поиск 🚀
 					</h3>
-					<p className='text-[11px] text-slate-200 font-bold uppercase mt-1'>
+					<p className='text-[11px] text-white/80 font-bold uppercase mt-2 tracking-widest'>
 						Создай резюме за 60 секунд
 					</p>
 				</div>
@@ -626,33 +614,28 @@ const HomePage: React.FC<{ user: User | null }> = ({ user }) => {
 						onClick={() => navigate('/games')}
 						className='bg-indigo-600 p-5 rounded-[2rem] text-white shadow-lg h-32 flex flex-col justify-end relative overflow-hidden cursor-pointer active:scale-95 transition-all'
 					>
-						<div className='absolute -right-2 -top-2 text-4xl opacity-20'>
-							🎮
-						</div>
 						<h4 className='font-black text-sm uppercase'>
 							PLAY ZONE
 						</h4>
-						<p className='text-[9px] text-indigo-100 font-bold uppercase'>
+						<p className='text-[9px] text-indigo-200 font-bold uppercase mt-1'>
 							Отдохни
 						</p>
 					</div>
 					<div
 						onClick={() => navigate('/subscription')}
-						className='bg-[#111111] p-5 rounded-[2rem] text-white shadow-lg h-32 flex flex-col justify-end relative overflow-hidden cursor-pointer active:scale-95 transition-all'
+						className='bg-slate-900 p-5 rounded-[2rem] text-white shadow-lg h-32 flex flex-col justify-end relative overflow-hidden cursor-pointer active:scale-95 transition-all'
 					>
-						<div className='absolute -right-2 -top-2 text-4xl opacity-20'>
-							💎
-						</div>
 						<h4 className='font-black text-sm uppercase'>
 							PRO ДОСТУП
 						</h4>
-						<p className='text-[9px] text-slate-400 font-bold uppercase'>
+						<p className='text-[9px] text-slate-400 font-bold uppercase mt-1'>
 							Контакты
 						</p>
 					</div>
 				</div>
 			</div>
 
+			{/* Spheres Horizontal Scroll */}
 			<div className='overflow-x-auto no-scrollbar flex gap-4 px-6 mb-8 mt-8'>
 				{spheres.map((s) => (
 					<div
@@ -660,40 +643,38 @@ const HomePage: React.FC<{ user: User | null }> = ({ user }) => {
 						onClick={() =>
 							navigate('/search', { state: { initialSphere: s } })
 						}
-						className='flex-shrink-0 flex flex-col items-center gap-2 cursor-pointer group'
+						className='flex-shrink-0 flex flex-col items-center gap-2 cursor-pointer'
 					>
 						<div className='w-14 h-14 bg-slate-50 border border-slate-100 rounded-2xl flex items-center justify-center text-xl transition-all active:scale-90'>
 							{s.icon}
 						</div>
-						<span className='text-[9px] font-bold text-slate-400 uppercase tracking-tighter text-center w-14'>
-							{s.name.split(' ')[0]}
+						<span className='text-[10px] font-black text-slate-400 uppercase tracking-tighter text-center'>
+							{s.name.split('-')[0]}
 						</span>
 					</div>
 				))}
 			</div>
 
-			<div className='px-6 space-y-6'>
-				<div className='flex justify-between items-center'>
-					<h3 className='text-lg font-black text-slate-900'>
+			{/* Recommendations List */}
+			<div className='px-6 space-y-4'>
+				<div className='flex justify-between items-center mb-2'>
+					<h3 className='text-xl font-black text-slate-900 tracking-tight'>
 						Рекомендуем
 					</h3>
 					<button
 						onClick={() => navigate('/search')}
-						className='text-[10px] font-black text-red-700 uppercase'
+						className='text-[11px] font-black text-red-700 uppercase tracking-widest'
 					>
 						Все →
 					</button>
 				</div>
 
 				{isLoading ? (
-					<div className='flex flex-col items-center py-10 gap-2'>
-						<div className='w-8 h-8 border-4 border-slate-100 border-t-red-700 rounded-full animate-spin' />
-						<span className='text-[10px] font-bold text-slate-400 uppercase'>
-							Ищем лучшее...
-						</span>
+					<div className='flex justify-center py-20'>
+						<div className='w-8 h-8 border-[3px] border-slate-100 border-t-red-700 rounded-full animate-spin' />
 					</div>
 				) : (
-					<div className='space-y-4'>
+					<div className='space-y-3 pb-20'>
 						{recommendations.map((vacancy) => (
 							<div
 								key={vacancy.id}
@@ -702,9 +683,10 @@ const HomePage: React.FC<{ user: User | null }> = ({ user }) => {
 										state: { type: 'job', data: vacancy },
 									})
 								}
-								className='bg-white border border-slate-100 p-5 rounded-[2rem] shadow-sm flex items-center gap-4 active:scale-[0.98] active:bg-slate-50 transition-all'
+								className={`relative bg-white border ${vacancy.boosted ? 'border-amber-200 bg-amber-50/20' : 'border-slate-100'} p-4 rounded-[2rem] shadow-sm flex items-start gap-4 active:scale-[0.98] transition-all cursor-pointer`}
 							>
-								<div className='w-16 h-16 bg-slate-50 rounded-2xl flex-shrink-0 flex items-center justify-center text-2xl overflow-hidden border border-slate-50'>
+								{/* Media Icon */}
+								<div className='w-14 h-14 bg-slate-50 rounded-[1.2rem] flex-shrink-0 flex items-center justify-center text-2xl overflow-hidden border border-slate-50 shadow-inner'>
 									{vacancy.media?.[0] ? (
 										<img
 											src={vacancy.media[0].fileUrl}
@@ -712,21 +694,62 @@ const HomePage: React.FC<{ user: User | null }> = ({ user }) => {
 											alt=''
 										/>
 									) : (
-										'💼'
+										<span className='grayscale opacity-40'>
+											💼
+										</span>
 									)}
 								</div>
-								<div className='flex-1 min-w-0 text-left'>
-									<h4 className='font-black text-slate-900 leading-tight truncate'>
-										{vacancy.title}
-									</h4>
-									<p className='text-[10px] font-bold text-slate-400 uppercase mt-1 truncate'>
-										{vacancy.companyName || 'Частное лицо'}{' '}
-										• {vacancy.cityName}
-									</p>
+
+								{/* Content Info */}
+								<div className='flex-1 min-w-0'>
+									<div className='flex justify-between items-start gap-2'>
+										<div className='flex-1 min-w-0'>
+											<h4 className='font-black text-slate-900 text-[15px] leading-tight truncate'>
+												{vacancy.title}
+											</h4>
+											<p className='text-[10px] font-bold text-slate-400 uppercase mt-0.5 truncate'>
+												{vacancy.companyName ||
+													'Частное лицо'}{' '}
+												• {vacancy.cityName}
+											</p>
+										</div>
+
+										{/* Salary Block - Now strictly right-aligned and clear */}
+										<div className='text-right flex-shrink-0 max-w-[130px]'>
+											<span className='inline-block bg-red-50 text-red-700 text-[11px] font-black px-2 py-1 rounded-lg leading-tight break-words'>
+												{vacancy.salary}
+											</span>
+										</div>
+									</div>
+
+									{/* Bottom Tags */}
+									<div className='flex items-center gap-2 mt-3'>
+										<div className='bg-slate-100 px-2 py-0.5 rounded-md'>
+											<span className='text-[9px] font-black text-slate-500 uppercase tracking-tighter'>
+												{vacancy.subcategoryName ||
+													vacancy.categoryName}
+											</span>
+										</div>
+										{vacancy.distanceKm && (
+											<span className='text-[9px] font-bold text-emerald-600 flex items-center gap-0.5'>
+												📍{' '}
+												{Math.round(
+													vacancy.distanceKm * 10,
+												) / 10}{' '}
+												км
+											</span>
+										)}
+										<span className='text-[9px] font-bold text-slate-300 ml-auto'>
+											{formatDate(vacancy.createdAt)}
+										</span>
+									</div>
 								</div>
-								<div className='text-right flex-shrink-0 text-[12px] font-black text-red-700'>
-									{renderSalary(vacancy.salary)}
-								</div>
+
+								{vacancy.boosted && (
+									<div className='absolute -top-2 left-6 bg-amber-400 text-white text-[7px] font-black px-2 py-0.5 rounded-full uppercase tracking-widest shadow-sm'>
+										Top
+									</div>
+								)}
 							</div>
 						))}
 					</div>

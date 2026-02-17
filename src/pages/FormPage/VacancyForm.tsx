@@ -46,8 +46,8 @@ export const VacancyForm: React.FC<Props> = ({
 		sphereId: 0,
 		categoryId: 0,
 		subcategoryId: 0,
-		minAge: undefined,
-		maxAge: undefined,
+		minAge: 0,
+		maxAge: 0,
 		preferredGender: 'ANY',
 		phone: '+996',
 		experienceInYear: 0,
@@ -133,18 +133,12 @@ export const VacancyForm: React.FC<Props> = ({
 							<input
 								type='number'
 								// Используем абстрактное сравнение или проверку на наличие
-								value={
-									field.value === 0 ||
-									field.value === undefined ||
-									field.value === null
-										? ''
-										: field.value
-								}
+								value={field.value === 0 ? '' : field.value}
 								onChange={(e) => {
 									const val = e.target.value
-									// Важно: передаем именно undefined при пустой строке
+									// Исправлено: позволяем полю быть пустым при вводе
 									field.onChange(
-										val === '' ? undefined : Number(val),
+										val === '' ? '' : Number(val),
 									)
 								}}
 								className={inputClass}
@@ -162,18 +156,12 @@ export const VacancyForm: React.FC<Props> = ({
 							<input
 								type='number'
 								// Используем абстрактное сравнение или проверку на наличие
-								value={
-									field.value === 0 ||
-									field.value === undefined ||
-									field.value === null
-										? ''
-										: field.value
-								}
+								value={field.value === 0 ? '' : field.value}
 								onChange={(e) => {
 									const val = e.target.value
-									// Важно: передаем именно undefined при пустой строке
+									// Исправлено: позволяем полю быть пустым при вводе
 									field.onChange(
-										val === '' ? undefined : Number(val),
+										val === '' ? '' : Number(val),
 									)
 								}}
 								className={inputClass}

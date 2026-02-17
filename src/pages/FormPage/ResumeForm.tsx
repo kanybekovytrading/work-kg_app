@@ -46,7 +46,7 @@ export const ResumeForm: React.FC<Props> = ({
 			sphereId: 0,
 			categoryId: 0,
 			subcategoryId: 0,
-			age: null,
+			age: 0,
 			experience: 0,
 			gender: 'MALE',
 			description: '',
@@ -112,17 +112,12 @@ export const ResumeForm: React.FC<Props> = ({
 							<input
 								type='number'
 								// Если значение 0 или undefined, показываем пустую строку
-								value={
-									field.value === 0 || !field.value
-										? ''
-										: field.value
-								}
+								value={field.value === 0 ? '' : field.value}
 								onChange={(e) => {
 									const val = e.target.value
-									// Если строка пустая, шлем undefined, чтобы Zod ругнулся (или разрешил),
-									// но инпут остался пустым
+									// Исправлено: позволяем полю быть пустым при вводе
 									field.onChange(
-										val === '' ? undefined : Number(val),
+										val === '' ? '' : Number(val),
 									)
 								}}
 								placeholder='18'
