@@ -38,33 +38,53 @@ export const ResumeForm: React.FC<Props> = ({
 	} = useForm<ResumeFormData>({
 		resolver: zodResolver(resumeSchema) as any,
 		defaultValues: initialData || {
+			name: '',
 			cityId: 1,
 			sphereId: 0,
 			categoryId: 0,
+			subcategoryId: 0,
 			age: 18,
 			experience: 0,
 			gender: 'MALE',
+			description: '',
 		},
 	})
 
-	const [categories, setCategories] = useState([])
+	const [categories, setCategories] = useState<any[]>([])
+	const [subcategories, setSubcategories] = useState<any[]>([])
+
+	// Состояния для медиа
 	const [selectedPhotos, setSelectedPhotos] = useState<File[]>([])
 	const [selectedVideos, setSelectedVideos] = useState<File[]>([])
-	const selectedSphere = watch('sphereId')
 
+	const selectedSphere = watch('sphereId')
+	const selectedCategory = watch('categoryId')
+
+	// Инициализация данных при редактировании
 	useEffect(() => {
 		if (initialData) reset(initialData)
 	}, [initialData, reset])
+
+	// Передача медиа в родительский компонент
 	useEffect(() => {
 		onMediaChange(selectedPhotos, selectedVideos)
 	}, [selectedPhotos, selectedVideos])
 
+	// Загрузка категорий
 	useEffect(() => {
 		if (selectedSphere > 0)
 			apiService
 				.getCategories(telegramId, selectedSphere)
 				.then(setCategories)
 	}, [selectedSphere, telegramId])
+
+	// Загрузка подкатегорий
+	useEffect(() => {
+		if (selectedCategory > 0)
+			apiService
+				.getSubcategories(telegramId, selectedCategory)
+				.then(setSubcategories)
+	}, [selectedCategory, telegramId])
 
 	return (
 		<form onSubmit={handleSubmit(onSubmit)} className='space-y-6'>
@@ -73,7 +93,11 @@ export const ResumeForm: React.FC<Props> = ({
 					name='name'
 					control={control}
 					render={({ field }) => (
-						<input {...field} className={inputClass} />
+						<input
+							{...field}
+							placeholder='Иван Иванов'
+							className={inputClass}
+						/>
 					)}
 				/>
 			</FormField>
@@ -87,6 +111,9 @@ export const ResumeForm: React.FC<Props> = ({
 							<input
 								type='number'
 								{...field}
+								onChange={(e) =>
+									field.onChange(Number(e.target.value))
+								}
 								className={inputClass}
 							/>
 						)}
@@ -103,6 +130,9 @@ export const ResumeForm: React.FC<Props> = ({
 							<input
 								type='number'
 								{...field}
+								onChange={(e) =>
+									field.onChange(Number(e.target.value))
+								}
 								className={inputClass}
 							/>
 						)}
@@ -119,14 +149,15 @@ export const ResumeForm: React.FC<Props> = ({
 						label='Пол'
 						value={field.value}
 						options={[
-							{ id: 'MALE', name: 'Мужской' },
-							{ id: 'FEMALE', name: 'Женский' },
+							{ id: 'MALE', name: 'Мужской', icon: '👨' },
+							{ id: 'FEMALE', name: 'Женский', icon: '👩' },
 						]}
 						onChange={field.onChange}
 					/>
 				)}
 			/>
 
+			{/* Блок Выбора сферы деятельности */}
 			<div className='space-y-6 p-6 bg-slate-50 rounded-[2.5rem] border border-slate-100'>
 				<Controller
 					name='cityId'
@@ -153,6 +184,7 @@ export const ResumeForm: React.FC<Props> = ({
 							onChange={(val) => {
 								field.onChange(val)
 								setValue('categoryId', 0)
+								setValue('subcategoryId', 0)
 							}}
 						/>
 					)}
@@ -167,6 +199,24 @@ export const ResumeForm: React.FC<Props> = ({
 								label='Категория'
 								value={field.value}
 								options={categories}
+								onChange={(val) => {
+									field.onChange(val)
+									setValue('subcategoryId', 0)
+								}}
+							/>
+						)}
+					/>
+				)}
+				{selectedCategory > 0 && subcategories.length > 0 && (
+					<Controller
+						name='subcategoryId'
+						control={control}
+						render={({ field }) => (
+							<ElegantSelect
+								placeholder=''
+								label='Подкатегория'
+								value={field.value}
+								options={subcategories}
 								onChange={field.onChange}
 							/>
 						)}
@@ -174,36 +224,76 @@ export const ResumeForm: React.FC<Props> = ({
 				)}
 			</div>
 
-			{/* Блок Медиа (такой же как в вакансии) */}
+			{/* Блок Медиа (Фото и Видео с удалением) */}
 			<div className='space-y-4'>
 				<label className='block text-sm font-bold text-slate-700 ml-1'>
-					Фото профиля / Работы
+					Фото и Видео
 				</label>
-				<label className='w-full h-14 bg-slate-900 text-white rounded-2xl flex items-center justify-center cursor-pointer shadow-lg'>
-					<input
-						type='file'
-						multiple
-						accept='image/*'
-						className='hidden'
-						onChange={(e) =>
-							e.target.files &&
-							setSelectedPhotos([
-								...selectedPhotos,
-								...Array.from(e.target.files),
-							])
-						}
-					/>
-					<span className='text-xs font-black uppercase tracking-wider'>
-						Добавить фото ({selectedPhotos.length})
-					</span>
-				</label>
-				<div className='flex gap-2 overflow-x-auto py-2'>
-					{selectedPhotos.map((f, i) => (
-						<img
-							key={i}
-							src={URL.createObjectURL(f)}
-							className='w-16 h-16 rounded-xl object-cover border'
+				<div className='flex gap-2'>
+					<label className='flex-1 h-14 bg-slate-900 text-white rounded-2xl flex items-center justify-center cursor-pointer shadow-lg active:scale-95 transition-all'>
+						<input
+							type='file'
+							multiple
+							accept='image/*'
+							className='hidden'
+							onChange={(e) =>
+								e.target.files &&
+								setSelectedPhotos([
+									...selectedPhotos,
+									...Array.from(e.target.files),
+								])
+							}
 						/>
+						<span className='text-xs font-black uppercase tracking-wider'>
+							+ Фото ({selectedPhotos.length})
+						</span>
+					</label>
+					<label className='flex-1 h-14 bg-slate-100 text-slate-900 rounded-2xl flex items-center justify-center cursor-pointer border border-slate-200 active:scale-95 transition-all'>
+						<input
+							type='file'
+							multiple
+							accept='video/*'
+							className='hidden'
+							onChange={(e) =>
+								e.target.files &&
+								setSelectedVideos([
+									...selectedVideos,
+									...Array.from(e.target.files),
+								])
+							}
+						/>
+						<span className='text-xs font-black uppercase tracking-wider'>
+							+ Видео ({selectedVideos.length})
+						</span>
+					</label>
+				</div>
+
+				{/* Превью фото */}
+				<div className='flex gap-3 overflow-x-auto no-scrollbar py-2'>
+					{selectedPhotos.map((file, i) => (
+						<div
+							key={i}
+							className='relative shrink-0 w-20 h-20 rounded-2xl overflow-hidden border border-slate-100'
+						>
+							<img
+								src={URL.createObjectURL(file)}
+								className='w-full h-full object-cover'
+								alt='preview'
+							/>
+							<button
+								type='button'
+								onClick={() =>
+									setSelectedPhotos(
+										selectedPhotos.filter(
+											(_, idx) => idx !== i,
+										),
+									)
+								}
+								className='absolute top-1 right-1 w-5 h-5 bg-red-600 text-white rounded-full text-[10px] flex items-center justify-center'
+							>
+								×
+							</button>
+						</div>
 					))}
 				</div>
 			</div>
@@ -218,7 +308,8 @@ export const ResumeForm: React.FC<Props> = ({
 					render={({ field }) => (
 						<textarea
 							{...field}
-							className='w-full bg-slate-50 border border-slate-100 min-h-[160px] p-6 rounded-3xl text-sm font-medium focus:outline-none'
+							className='w-full bg-slate-50 border border-slate-100 min-h-[160px] p-6 rounded-3xl text-sm font-medium focus:outline-none resize-none'
+							placeholder='Расскажите о своих сильных сторонах...'
 						/>
 					)}
 				/>
@@ -227,9 +318,13 @@ export const ResumeForm: React.FC<Props> = ({
 			<button
 				type='submit'
 				disabled={loading}
-				className='w-full py-6 bg-slate-900 text-white rounded-[2rem] font-black uppercase text-xs tracking-widest'
+				className='w-full py-6 bg-slate-900 text-white rounded-[2rem] font-black uppercase text-xs tracking-widest shadow-xl active:scale-[0.98] transition-all'
 			>
-				{loading ? 'Загрузка...' : 'Опубликовать резюме'}
+				{loading
+					? 'Загрузка...'
+					: initialData
+						? 'Сохранить изменения'
+						: 'Опубликовать резюме'}
 			</button>
 		</form>
 	)

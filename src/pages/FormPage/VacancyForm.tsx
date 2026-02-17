@@ -6,18 +6,29 @@ import { apiService } from '../../../apiService'
 import { FormField } from '.'
 import { AddressAutocomplete2GIS, ElegantSelect } from '../../../App'
 
-const inputClass =
-	'w-full bg-slate-50 border border-slate-100 h-14 px-6 rounded-2xl text-sm font-bold focus:outline-none ring-2 ring-transparent focus:ring-red-50 transition-all placeholder:text-slate-300 text-slate-900'
+// Типы для справочников
+interface BaseEntity {
+	id: number
+	name: string
+}
+
+interface Sphere extends BaseEntity {
+	icon?: string
+}
 
 interface Props {
-	initialData?: any
+	// Partial позволяет передавать неполные данные, но мы ожидаем совпадение с типами Zod
+	initialData?: Partial<VacancyFormData> | null
 	onSubmit: (data: VacancyFormData) => void
 	onMediaChange: (photos: File[], videos: File[]) => void
 	loading: boolean
-	cities: any[]
-	spheres: any[]
+	cities: BaseEntity[]
+	spheres: Sphere[]
 	telegramId: number
 }
+
+const inputClass =
+	'w-full bg-slate-50 border border-slate-100 h-14 px-6 rounded-2xl text-sm font-bold focus:outline-none ring-2 ring-transparent focus:ring-red-50 transition-all placeholder:text-slate-300 text-slate-900'
 
 export const VacancyForm: React.FC<Props> = ({
 	initialData,
@@ -28,6 +39,25 @@ export const VacancyForm: React.FC<Props> = ({
 	spheres,
 	telegramId,
 }) => {
+	const defaultValues: VacancyFormData = {
+		cityId: 1,
+		sphereId: 0,
+		categoryId: 0,
+		subcategoryId: 0,
+		minAge: 18,
+		maxAge: 45,
+		preferredGender: 'ANY',
+		phone: '+996',
+		experienceInYear: 0,
+		salary: '',
+		schedule: '',
+		companyName: '',
+		title: '',
+		description: '',
+		address: null,
+		latitude: null,
+		longitude: null,
+	}
 	const {
 		control,
 		handleSubmit,
@@ -35,22 +65,16 @@ export const VacancyForm: React.FC<Props> = ({
 		setValue,
 		reset,
 		formState: { errors },
-	} = useForm<VacancyFormData>({
-		resolver: zodResolver(vacancySchema) as any,
-		defaultValues: initialData || {
-			cityId: 1,
-			sphereId: 0,
-			categoryId: 0,
-			subcategoryId: 0,
-			minAge: 18,
-			maxAge: 45,
-			preferredGender: 'ANY',
-			phone: '+996',
-		},
+	} = useForm({
+		resolver: zodResolver(vacancySchema),
+		defaultValues: {
+			...defaultValues,
+			...(initialData || {}),
+		} as VacancyFormData,
 	})
 
-	const [categories, setCategories] = useState([])
-	const [subcategories, setSubcategories] = useState([])
+	const [categories, setCategories] = useState<BaseEntity[]>([])
+	const [subcategories, setSubcategories] = useState<BaseEntity[]>([])
 	const [selectedPhotos, setSelectedPhotos] = useState<File[]>([])
 	const [selectedVideos, setSelectedVideos] = useState<File[]>([])
 
@@ -58,29 +82,31 @@ export const VacancyForm: React.FC<Props> = ({
 	const selectedCategory = watch('categoryId')
 
 	useEffect(() => {
-		if (initialData) reset(initialData)
+		if (initialData) {
+			reset(initialData)
+		}
 	}, [initialData, reset])
 
 	useEffect(() => {
 		onMediaChange(selectedPhotos, selectedVideos)
-	}, [selectedPhotos, selectedVideos])
+	}, [selectedPhotos, selectedVideos, onMediaChange])
 
 	useEffect(() => {
 		if (selectedSphere > 0)
 			apiService
 				.getCategories(telegramId, selectedSphere)
-				.then(setCategories)
+				.then((res: BaseEntity[]) => setCategories(res))
 	}, [selectedSphere, telegramId])
 
 	useEffect(() => {
 		if (selectedCategory > 0)
 			apiService
 				.getSubcategories(telegramId, selectedCategory)
-				.then(setSubcategories)
+				.then((res: BaseEntity[]) => setSubcategories(res))
 	}, [selectedCategory, telegramId])
 
 	return (
-		<form onSubmit={handleSubmit(onSubmit as any)} className='space-y-6'>
+		<form onSubmit={handleSubmit(onSubmit)} className='space-y-6'>
 			<FormField label='Название вакансии' error={errors.title?.message}>
 				<Controller
 					name='title'
@@ -103,7 +129,14 @@ export const VacancyForm: React.FC<Props> = ({
 						render={({ field }) => (
 							<input
 								type='number'
-								{...field}
+								value={field.value}
+								onChange={(e) =>
+									field.onChange(
+										e.target.value
+											? Number(e.target.value)
+											: 0,
+									)
+								}
 								className={inputClass}
 							/>
 						)}
@@ -116,7 +149,14 @@ export const VacancyForm: React.FC<Props> = ({
 						render={({ field }) => (
 							<input
 								type='number'
-								{...field}
+								value={field.value}
+								onChange={(e) =>
+									field.onChange(
+										e.target.value
+											? Number(e.target.value)
+											: 0,
+									)
+								}
 								className={inputClass}
 							/>
 						)}
@@ -133,11 +173,14 @@ export const VacancyForm: React.FC<Props> = ({
 						label='Кого вы ищете?'
 						value={field.value}
 						options={[
-							{ id: 'ANY', name: 'Не важно' },
-							{ id: 'MALE', name: 'Мужской' },
-							{ id: 'FEMALE', name: 'Женский' },
+							{ id: 'ANY', name: 'Не важно', icon: '👥' },
+							{ id: 'MALE', name: 'Мужской', icon: '👨' },
+							{ id: 'FEMALE', name: 'Женский', icon: '👩' },
 						]}
-						onChange={field.onChange}
+						// Приведение типа здесь безопасно, так как мы знаем опции
+						onChange={(val) =>
+							field.onChange(val as 'ANY' | 'MALE' | 'FEMALE')
+						}
 					/>
 				)}
 			/>
@@ -199,7 +242,8 @@ export const VacancyForm: React.FC<Props> = ({
 							<ElegantSelect
 								placeholder=''
 								label='Подкатегория'
-								value={field.value}
+								// Если subcategoryId undefined/null, ставим 0 для селекта
+								value={field.value ?? 0}
 								options={subcategories}
 								onChange={field.onChange}
 							/>
@@ -208,7 +252,6 @@ export const VacancyForm: React.FC<Props> = ({
 				)}
 			</div>
 
-			{/* Блок Медиа */}
 			<div className='space-y-4'>
 				<label className='block text-sm font-bold text-slate-700 ml-1'>
 					Фото и Видео
@@ -271,7 +314,7 @@ export const VacancyForm: React.FC<Props> = ({
 										),
 									)
 								}
-								className='absolute top-1 right-1 w-5 h-5 bg-red-600 text-white rounded-full text-[10px]'
+								className='absolute top-1 right-1 w-5 h-5 bg-red-600 text-white rounded-full text-[10px] flex items-center justify-center'
 							>
 								×
 							</button>
@@ -294,6 +337,33 @@ export const VacancyForm: React.FC<Props> = ({
 						)}
 					/>
 				</FormField>
+				<FormField
+					label='Опыт (лет)'
+					error={errors.experienceInYear?.message}
+				>
+					<Controller
+						name='experienceInYear'
+						control={control}
+						render={({ field }) => (
+							<input
+								type='number'
+								value={field.value}
+								onChange={(e) =>
+									field.onChange(
+										e.target.value
+											? Number(e.target.value)
+											: 0,
+									)
+								}
+								placeholder='0'
+								className={inputClass}
+							/>
+						)}
+					/>
+				</FormField>
+			</div>
+
+			<div className='grid grid-cols-2 gap-4'>
 				<FormField label='График' error={errors.schedule?.message}>
 					<Controller
 						name='schedule'
@@ -307,17 +377,17 @@ export const VacancyForm: React.FC<Props> = ({
 						)}
 					/>
 				</FormField>
-			</div>
 
-			<FormField label='Компания' error={errors.companyName?.message}>
-				<Controller
-					name='companyName'
-					control={control}
-					render={({ field }) => (
-						<input {...field} className={inputClass} />
-					)}
-				/>
-			</FormField>
+				<FormField label='Компания' error={errors.companyName?.message}>
+					<Controller
+						name='companyName'
+						control={control}
+						render={({ field }) => (
+							<input {...field} className={inputClass} />
+						)}
+					/>
+				</FormField>
+			</div>
 
 			<Controller
 				name='address'
@@ -325,7 +395,11 @@ export const VacancyForm: React.FC<Props> = ({
 				render={({ field }) => (
 					<AddressAutocomplete2GIS
 						value={field.value || ''}
-						onChange={(d) => {
+						onChange={(d: {
+							address: string
+							lat: number
+							lng: number
+						}) => {
 							setValue('address', d.address)
 							setValue('latitude', d.lat)
 							setValue('longitude', d.lng)
@@ -357,7 +431,7 @@ export const VacancyForm: React.FC<Props> = ({
 					render={({ field }) => (
 						<textarea
 							{...field}
-							className='w-full bg-slate-50 border border-slate-100 min-h-[160px] p-6 rounded-3xl text-sm font-medium focus:outline-none'
+							className='w-full bg-slate-50 border border-slate-100 min-h-[160px] p-6 rounded-3xl text-sm font-medium focus:outline-none resize-none'
 						/>
 					)}
 				/>

@@ -121,6 +121,18 @@ export const BANK_SERVICES: Record<string, BankService> = {
 		max: 69999,
 	},
 }
+
+export const formatDate = (dateString: string) => {
+	if (!dateString) return ''
+	const date = new Date(dateString)
+
+	// Настройка формата: 'ru-RU' для русского языка
+	return new Intl.DateTimeFormat('ru-RU', {
+		day: 'numeric',
+		month: 'long', // 'long' = февраля, 'short' = февр., 'numeric' = 02
+		year: 'numeric',
+	}).format(date)
+}
 export const formatPhoneKG = (input: string) => {
 	// Extract only digits
 	let digits = input.replace(/\D/g, '')

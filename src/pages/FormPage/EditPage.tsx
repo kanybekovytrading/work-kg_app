@@ -10,10 +10,15 @@ const EditPage: React.FC<{ telegramId: number }> = ({ telegramId }) => {
 	const location = useLocation()
 	const { showToast } = useToast()
 
-	// Получаем данные из state навигации
-	const { type, existingData } = location.state || {}
+	// Ожидаем, что в state передали { type: 'vac' | 'res', id: number }
+	// Поддерживаем старый формат (existingData) для совместимости, вытаскивая оттуда ID
+	const state = location.state || {}
+	const type = state.type
+	const targetId = state.id || state.existingData?.id
 
-	const [loading, setLoading] = useState(false)
+	const [loading, setLoading] = useState(true)
+	const [initialData, setInitialData] = useState<any>(null)
+
 	const [cities, setCities] = useState([])
 	const [spheres, setSpheres] = useState([])
 
@@ -21,67 +26,132 @@ const EditPage: React.FC<{ telegramId: number }> = ({ telegramId }) => {
 	const [newPhotos, setNewPhotos] = useState<File[]>([])
 	const [newVideos, setNewVideos] = useState<File[]>([])
 
+	// 1. Загрузка справочников и Данных вакансии/резюме
 	useEffect(() => {
-		if (!existingData) {
+		if (!targetId || !type) {
 			navigate('/profile')
 			return
 		}
-		apiService.getCities(telegramId).then(setCities)
-		apiService.getSpheres(telegramId).then(setSpheres)
-	}, [telegramId, existingData, navigate])
+
+		const fetchData = async () => {
+			setLoading(true)
+			try {
+				// Запускаем все запросы параллельно для скорости
+				const isVac = type === 'vac' || type === 'job'
+
+				// Формируем промис для получения основных данных
+				// Важно: isProfile = true, так как это редактирование
+				const mainDataPromise = isVac
+					? apiService.getVacancy(targetId, telegramId, true)
+					: apiService.getResume(targetId, telegramId, true)
+
+				const [mainData, citiesData, spheresData] = await Promise.all([
+					mainDataPromise,
+					apiService.getCities(telegramId),
+					apiService.getSpheres(telegramId),
+				])
+
+				setCities(citiesData)
+				setSpheres(spheresData)
+
+				// Подготавливаем данные для формы (превращаем объекты в ID)
+				const prepared = prepareDataForForm(mainData)
+				setInitialData(prepared)
+			} catch (e) {
+				console.error(e)
+				showToast('Ошибка при загрузке данных', 'error')
+				navigate('/profile')
+			} finally {
+				setLoading(false)
+			}
+		}
+
+		fetchData()
+	}, [telegramId, targetId, type, navigate, showToast])
+
+	// Вспомогательная функция для преобразования данных API в формат формы
+	const prepareDataForForm = (data: any) => {
+		if (!data) return null
+		return {
+			...data,
+			// Если API возвращает объект city: {id: 1, name: ...}, берем id
+			// Если API возвращает просто cityId, берем его
+			cityId: data.city?.id || data.cityId,
+			sphereId: data.sphere?.id || data.sphereId,
+			categoryId: data.category?.id || data.categoryId,
+			subcategoryId: data.subcategory?.id || data.subcategoryId,
+			// Гарантируем, что experienceInYear это число
+			experienceInYear: data.experienceInYear
+				? Number(data.experienceInYear)
+				: 0,
+			// Для резюме
+			experience: data.experience ? Number(data.experience) : 0,
+		}
+	}
 
 	const handleUpdate = async (formData: any) => {
 		setLoading(true)
 		try {
 			const isVac = type === 'vac' || type === 'job'
-			const id = existingData.id
 
 			// 1. Обновляем текстовые данные
 			if (isVac) {
-				await apiService.updateVacancy(id, telegramId, formData)
+				await apiService.updateVacancy(targetId, telegramId, formData)
 			} else {
-				await apiService.updateResume(id, telegramId, formData)
+				await apiService.updateResume(targetId, telegramId, formData)
 			}
 
-			// 2. Если пользователь выбрал НОВЫЕ фото/видео во время редактирования — догружаем их
+			// 2. Загружаем НОВЫЕ медиафайлы (если выбрали)
+			// Примечание: Старые фото обычно остаются на сервере, если API обновления не стирает их.
 			for (const file of newPhotos) {
 				if (isVac)
-					await apiService.uploadVacancyPhoto(id, telegramId, file)
-				else await apiService.uploadResumePhoto(id, telegramId, file)
+					await apiService.uploadVacancyPhoto(
+						targetId,
+						telegramId,
+						file,
+					)
+				else
+					await apiService.uploadResumePhoto(
+						targetId,
+						telegramId,
+						file,
+					)
 			}
 			for (const file of newVideos) {
 				if (isVac)
-					await apiService.uploadVacancyVideo(id, telegramId, file)
-				else await apiService.uploadResumeVideo(id, telegramId, file)
+					await apiService.uploadVacancyVideo(
+						targetId,
+						telegramId,
+						file,
+					)
+				else
+					await apiService.uploadResumeVideo(
+						targetId,
+						telegramId,
+						file,
+					)
 			}
 
 			showToast('Изменения сохранены! ✨')
 			navigate('/profile')
 		} catch (e) {
+			console.error(e)
 			showToast('Ошибка при обновлении', 'error')
 		} finally {
 			setLoading(false)
 		}
 	}
 
-	/**
-	 * Подготовка данных:
-	 * Превращаем вложенные объекты API в плоские ID для react-hook-form
-	 */
-	const preparedData = existingData
-		? {
-				...existingData,
-				cityId: existingData.city?.id || existingData.cityId,
-				sphereId: existingData.sphere?.id || existingData.sphereId,
-				categoryId:
-					existingData.category?.id || existingData.categoryId,
-				subcategoryId:
-					existingData.subcategory?.id || existingData.subcategoryId,
-			}
-		: null
+	if (loading && !initialData) {
+		return (
+			<div className='min-h-screen flex items-center justify-center bg-white'>
+				<div className='w-8 h-8 border-2 border-slate-900 border-t-transparent rounded-full animate-spin' />
+			</div>
+		)
+	}
 
 	return (
-		<div className='bg-white min-h-screen pb-20'>
+		<div className='bg-white min-h-screen pb-20 animate-in fade-in duration-300'>
 			<header
 				className='p-6 pt-12 flex items-center gap-4 sticky top-0 bg-white/90 backdrop-blur-md z-40 border-b border-slate-100'
 				style={{
@@ -90,7 +160,7 @@ const EditPage: React.FC<{ telegramId: number }> = ({ telegramId }) => {
 			>
 				<button
 					onClick={() => navigate(-1)}
-					className='w-10 h-10 bg-slate-50 rounded-xl flex items-center justify-center text-slate-600'
+					className='w-10 h-10 bg-slate-50 rounded-xl flex items-center justify-center text-slate-600 active:scale-95 transition-transform'
 				>
 					←
 				</button>
@@ -105,7 +175,7 @@ const EditPage: React.FC<{ telegramId: number }> = ({ telegramId }) => {
 						telegramId={telegramId}
 						cities={cities}
 						spheres={spheres}
-						initialData={preparedData}
+						initialData={initialData}
 						onSubmit={handleUpdate}
 						onMediaChange={(p, v) => {
 							setNewPhotos(p)
@@ -118,7 +188,7 @@ const EditPage: React.FC<{ telegramId: number }> = ({ telegramId }) => {
 						telegramId={telegramId}
 						cities={cities}
 						spheres={spheres}
-						initialData={preparedData}
+						initialData={initialData}
 						onSubmit={handleUpdate}
 						onMediaChange={(p, v) => {
 							setNewPhotos(p)

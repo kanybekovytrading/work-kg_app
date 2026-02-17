@@ -16,7 +16,7 @@ import { CONFIG } from './constants'
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL
 
 const client = axios.create({
-	baseURL: API_BASE_URL,
+	baseURL: API_BASE_URL || 'https://workkg.com/api',
 	timeout: 30000,
 })
 
@@ -244,6 +244,16 @@ export const apiService = {
 				? `/statistic/vacancies/${id}/view`
 				: `/statistic/resumes/${id}/view`
 		return client.post(endpoint)
+	},
+
+	async getRecommendedVacancies(
+		telegramId: number,
+		limit: number = 10,
+	): Promise<Vacancy[]> {
+		const res = await client.get<Vacancy[]>(`/bot/recommended/vacancies`, {
+			params: { telegramId, limit },
+		})
+		return res.data
 	},
 
 	async trackContactClick(type: 'job' | 'worker', id: number, tid: number) {

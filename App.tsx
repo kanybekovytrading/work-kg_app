@@ -17,7 +17,7 @@ import {
 } from 'react-router-dom'
 import { apiService } from './apiService'
 import { geminiService } from './geminiService'
-import { LOCALES, BANK_SERVICES, formatPhoneKG } from './constants'
+import { LOCALES, BANK_SERVICES, formatPhoneKG, formatDate } from './constants'
 import {
 	User,
 	Resume,
@@ -548,47 +548,59 @@ const FormField: React.FC<{ label: string; children: React.ReactNode }> = ({
 
 const HomePage: React.FC<{ user: User | null }> = ({ user }) => {
 	const navigate = useNavigate()
+	const [recommendations, setRecommendations] = useState<any[]>([])
+	const [loading, setLoading] = useState(true)
+	const telegramId = user?.telegramId
+
+	// 1. Загрузка данных из API
+	useEffect(() => {
+		const fetchRecommended = async () => {
+			try {
+				// Используем метод, который мы добавили в apiService
+				const data = await apiService.getRecommendedVacancies(
+					telegramId,
+					10,
+				)
+				setRecommendations(data)
+			} catch (error) {
+				console.error('Ошибка при загрузке рекомендаций:', error)
+			} finally {
+				setLoading(false)
+			}
+		}
+
+		fetchRecommended()
+	}, [telegramId])
+
+	// 2. Форматирование зарплаты (Договорная vs Число)
+	const renderSalary = (salary: string) => {
+		if (!salary || salary.trim() === '') return 'ЗП не указана'
+
+		const s = String(salary).trim()
+		const hasLetters = /[а-яА-Яa-zA-Z]/.test(s)
+
+		if (hasLetters) {
+			return s // Вернет "Договорная" или "Сдельная"
+		} else {
+			// Превратит "50000" в "50 000 сом"
+			const formatted = s.replace(/\B(?=(\d{3})+(?!\d))/g, ' ')
+			return `${formatted} сом`
+		}
+	}
 
 	const spheres = [
-		{
-			id: 1,
-			name: 'IT-сфера',
-			icon: '💻',
-		},
-		{
-			id: 2,
-			name: 'Продажи',
-			icon: '🏪',
-		},
-		{
-			id: 3,
-			name: 'Строительство',
-			icon: '🏗',
-		},
-		{
-			id: 4,
-			name: 'Маркетинг',
-			icon: '📈',
-		},
-		{
-			id: 5,
-			name: 'Швейная отрасль',
-			icon: '🧵',
-		},
-		{
-			id: 6,
-			name: 'Логистика',
-			icon: '🚚',
-		},
-		{
-			id: 7,
-			name: 'Общепит',
-			icon: '☕️',
-		},
+		{ id: 1, name: 'IT-сфера', icon: '💻' },
+		{ id: 2, name: 'Продажи', icon: '🏪' },
+		{ id: 3, name: 'Строительство', icon: '🏗' },
+		{ id: 4, name: 'Маркетинг', icon: '📈' },
+		{ id: 5, name: 'Швейная отрасль', icon: '🧵' },
+		{ id: 6, name: 'Логистика', icon: '🚚' },
+		{ id: 7, name: 'Общепит', icon: '☕️' },
 	]
 
 	return (
 		<div className='pb-40 animate-in fade-in duration-500 bg-white min-h-screen main-content-offset'>
+			{/* HEADER */}
 			<header className='px-6 pb-4 flex items-center justify-between sticky top-0 bg-white/90 backdrop-blur-md z-40 border-b border-slate-50'>
 				<Logo />
 				<div className='flex items-center gap-2'>
@@ -601,6 +613,7 @@ const HomePage: React.FC<{ user: User | null }> = ({ user }) => {
 
 			<LocationBanner />
 
+			{/* ACTION BUTTONS */}
 			<div className='px-6 mt-6 space-y-4'>
 				<div
 					onClick={() =>
@@ -619,7 +632,6 @@ const HomePage: React.FC<{ user: User | null }> = ({ user }) => {
 					</div>
 				</div>
 
-				{/* Bento Grid: Games & Pro */}
 				<div className='grid grid-cols-2 gap-4'>
 					<div
 						onClick={() => navigate('/games')}
@@ -656,6 +668,7 @@ const HomePage: React.FC<{ user: User | null }> = ({ user }) => {
 				</div>
 			</div>
 
+			{/* SPHERES HORIZONTAL SCROLL */}
 			<div className='overflow-x-auto no-scrollbar flex gap-4 px-6 mb-8 mt-8'>
 				{spheres.map((s) => (
 					<div
@@ -668,13 +681,14 @@ const HomePage: React.FC<{ user: User | null }> = ({ user }) => {
 						<div className='w-14 h-14 bg-slate-50 border border-slate-100 rounded-2xl flex items-center justify-center text-xl transition-all active:scale-90'>
 							{s.icon}
 						</div>
-						<span className='text-[9px] font-bold text-slate-400 uppercase tracking-tighter'>
-							{s.name}
+						<span className='text-[9px] font-bold text-slate-400 uppercase tracking-tighter text-center w-14'>
+							{s.name.split(' ')[0]}
 						</span>
 					</div>
 				))}
 			</div>
 
+			{/* RECOMMENDATIONS SECTION */}
 			<div className='px-6 space-y-6'>
 				<div className='flex justify-between items-center'>
 					<h3 className='text-lg font-black text-slate-900'>
@@ -688,32 +702,66 @@ const HomePage: React.FC<{ user: User | null }> = ({ user }) => {
 					</button>
 				</div>
 
-				{[1, 2].map((i) => (
-					<div
-						key={i}
-						className='bg-white border border-slate-100 p-6 rounded-[2rem] shadow-sm flex items-center gap-4 active:bg-slate-50 transition-all'
-					>
-						<div className='w-16 h-16 bg-slate-50 rounded-2xl flex items-center justify-center text-2xl'>
-							💼
-						</div>
-						<div className='flex-1'>
-							<h4 className='font-black text-slate-900 leading-tight'>
-								Бариста / Официант
-							</h4>
-							<p className='text-[10px] font-bold text-slate-400 uppercase mt-1'>
-								Sierra Coffee • Бишкек
-							</p>
-						</div>
-						<div className='text-right'>
-							<div className='text-sm font-black text-red-700'>
-								45 000
-							</div>
-							<div className='text-[8px] font-black text-slate-300 uppercase'>
-								сом
-							</div>
-						</div>
+				{loading ? (
+					<div className='flex flex-col items-center py-10 gap-2'>
+						<div className='w-8 h-8 border-4 border-slate-100 border-t-red-700 rounded-full animate-spin' />
+						<span className='text-[10px] font-bold text-slate-400 uppercase'>
+							Ищем лучшее...
+						</span>
 					</div>
-				))}
+				) : (
+					<div className='space-y-4'>
+						{recommendations.map((vacancy) => (
+							<div
+								key={vacancy.id}
+								onClick={() =>
+									navigate(`/detail/${vacancy.id}`, {
+										state: { type: 'job', data: vacancy },
+									})
+								}
+								className='bg-white border border-slate-100 p-5 rounded-[2rem] shadow-sm flex items-center gap-4 active:scale-[0.98] active:bg-slate-50 transition-all'
+							>
+								<div className='w-16 h-16 bg-slate-50 rounded-2xl flex-shrink-0 flex items-center justify-center text-2xl overflow-hidden border border-slate-50'>
+									{vacancy.media &&
+									vacancy.media.length > 0 ? (
+										<img
+											src={vacancy.media[0].fileUrl}
+											className='w-full h-full object-cover'
+											alt='job'
+										/>
+									) : (
+										'💼'
+									)}
+								</div>
+
+								<div className='flex-1 min-w-0'>
+									<h4 className='font-black text-slate-900 leading-tight truncate'>
+										{vacancy.title}
+									</h4>
+									<p className='text-[10px] font-bold text-slate-400 uppercase mt-1 truncate'>
+										{vacancy.companyName || 'Частное лицо'}{' '}
+										• {vacancy.cityName}
+									</p>
+								</div>
+
+								{/* Зарплата */}
+								<div className='text-right flex-shrink-0'>
+									<div className='text-[12px] font-black text-red-700 leading-none'>
+										{renderSalary(vacancy.salary)}
+									</div>
+								</div>
+							</div>
+						))}
+					</div>
+				)}
+
+				{!loading && recommendations.length === 0 && (
+					<div className='text-center py-10'>
+						<p className='text-slate-400 font-bold text-sm'>
+							Пока ничего не нашлось
+						</p>
+					</div>
+				)}
 			</div>
 		</div>
 	)
@@ -1793,9 +1841,21 @@ const ProfilePage: React.FC<{ telegramId: number; user: User | null }> = ({
 }) => {
 	const navigate = useNavigate()
 	const { showToast } = useToast()
-	const [activeTab, setActiveTab] = useState<'resumes' | 'vacancies'>(
-		'resumes',
-	)
+
+	// --- ИЗМЕНЕНИЕ 1: Заменяем useState на useSearchParams ---
+	const [searchParams, setSearchParams] = useSearchParams()
+
+	// Получаем текущий таб из URL. Если параметра нет — по дефолту 'resumes'
+	const activeTabParam = searchParams.get('tab')
+	const activeTab: 'resumes' | 'vacancies' =
+		activeTabParam === 'vacancies' ? 'vacancies' : 'resumes'
+
+	// Функция для смены таба (меняет URL)
+	const handleTabChange = (tab: 'resumes' | 'vacancies') => {
+		setSearchParams({ tab }, { replace: true }) // replace: true чтобы не засорять историю
+	}
+	// ---------------------------------------------------------
+
 	const [resumes, setResumes] = useState<any[]>([])
 	const [vacancies, setVacancies] = useState<any[]>([])
 	const [loading, setLoading] = useState(true)
@@ -1839,7 +1899,7 @@ const ProfilePage: React.FC<{ telegramId: number; user: User | null }> = ({
 			}
 			showToast('Объявление поднято в ТОП! 🚀', 'success')
 			setBoostTarget(null)
-			fetchAll() // Обновляем список, чтобы увидеть статус 🔥
+			fetchAll()
 		} catch (e: any) {
 			const msg =
 				e.response?.data?.message || 'Недостаточно баллов или ошибка'
@@ -1866,10 +1926,10 @@ const ProfilePage: React.FC<{ telegramId: number; user: User | null }> = ({
 				<button
 					onClick={() =>
 						navigate('/edit', {
-							state: { type: 'res', existingData: item },
+							state: { type: type, existingData: item },
 						})
 					}
-					className='w-10 h-10 flex items-center justify-center bg-slate-50 rounded-xl transition-colors'
+					className='w-10 h-10 flex items-center justify-center bg-slate-50 rounded-xl transition-colors active:scale-95'
 				>
 					✏️
 				</button>
@@ -1884,7 +1944,7 @@ const ProfilePage: React.FC<{ telegramId: number; user: User | null }> = ({
 							},
 						})
 					}
-					className='py-4 bg-slate-900 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest'
+					className='py-4 bg-slate-900 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest active:scale-[0.98] transition-transform'
 				>
 					Просмотр
 				</button>
@@ -1896,7 +1956,7 @@ const ProfilePage: React.FC<{ telegramId: number; user: User | null }> = ({
 							name: type === 'res' ? item.name : item.title,
 						})
 					}
-					className='py-4 bg-red-50 text-red-700 rounded-2xl text-[10px] font-black uppercase tracking-widest'
+					className='py-4 bg-red-50 text-red-700 rounded-2xl text-[10px] font-black uppercase tracking-widest active:scale-[0.98] transition-transform'
 				>
 					Продвинуть 🚀
 				</button>
@@ -1908,14 +1968,13 @@ const ProfilePage: React.FC<{ telegramId: number; user: User | null }> = ({
 		<div className='px-5 space-y-6 py-12 pb-40 min-h-screen bg-[#fcfcfc]'>
 			<div className='bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm space-y-4 relative overflow-hidden'>
 				<div className='flex items-center gap-4 relative z-10'>
-					<div className='w-16 h-16 bg-slate-50 rounded-3xl flex items-center justify-center font-black text-slate-900 text-2xl border border-slate-100 overflow-hidden'>
+					<div className='w-16 h-16 bg-slate-50 rounded-3xl flex items-center justify-center font-black text-slate-900 text-2xl border border-slate-100 overflow-hidden shrink-0'>
 						{tgUserPhoto ? (
 							<img
 								src={tgUserPhoto}
 								alt='Profile'
 								className='w-full h-full object-cover'
 								onError={(e) => {
-									// Если картинка не прогрузилась, заменяем на букву
 									e.currentTarget.style.display = 'none'
 								}}
 							/>
@@ -1923,8 +1982,8 @@ const ProfilePage: React.FC<{ telegramId: number; user: User | null }> = ({
 							user?.firstName?.charAt(0)
 						)}
 					</div>
-					<div className='text-left text-slate-900'>
-						<h3 className='text-xl font-black'>
+					<div className='text-left text-slate-900 overflow-hidden'>
+						<h3 className='text-xl font-black truncate'>
 							{user?.firstName}
 						</h3>
 						<p className='text-xs font-bold text-slate-400 uppercase tracking-widest'>
@@ -1933,7 +1992,7 @@ const ProfilePage: React.FC<{ telegramId: number; user: User | null }> = ({
 					</div>
 					<button
 						onClick={() => navigate('/subscription')}
-						className='ml-auto px-4 py-2 bg-slate-900 text-white text-[9px] font-black uppercase rounded-xl shadow-lg'
+						className='ml-auto px-4 py-2 bg-slate-900 text-white text-[9px] font-black uppercase rounded-xl shadow-lg active:scale-95 transition-transform'
 					>
 						PRO 💎
 					</button>
@@ -1949,26 +2008,29 @@ const ProfilePage: React.FC<{ telegramId: number; user: User | null }> = ({
 					</div>
 					<button
 						onClick={() => navigate('/withdraw')}
-						className='text-[10px] font-black text-slate-900 uppercase bg-slate-50 px-4 py-2 rounded-xl border border-slate-100'
+						className='text-[10px] font-black text-slate-900 uppercase bg-slate-50 px-4 py-2 rounded-xl border border-slate-100 active:scale-95 transition-transform'
 					>
 						Вывод
 					</button>
 				</div>
 			</div>
+
+			{/* --- ИЗМЕНЕНИЕ 2: Кнопки переключения табов --- */}
 			<div className='flex bg-white p-1.5 rounded-2xl border border-slate-100'>
 				<button
-					onClick={() => setActiveTab('resumes')}
-					className={`flex-1 py-3 rounded-xl font-black text-xs uppercase tracking-widest transition-all ${activeTab === 'resumes' ? 'bg-slate-900 text-white shadow-xl' : 'text-slate-400'}`}
+					onClick={() => handleTabChange('resumes')}
+					className={`flex-1 py-3 rounded-xl font-black text-xs uppercase tracking-widest transition-all ${activeTab === 'resumes' ? 'bg-slate-900 text-white shadow-xl' : 'text-slate-400 hover:text-slate-600'}`}
 				>
 					Мои Резюме
 				</button>
 				<button
-					onClick={() => setActiveTab('vacancies')}
-					className={`flex-1 py-3 rounded-xl font-black text-xs uppercase tracking-widest transition-all ${activeTab === 'vacancies' ? 'bg-slate-900 text-white shadow-xl' : 'text-slate-400'}`}
+					onClick={() => handleTabChange('vacancies')}
+					className={`flex-1 py-3 rounded-xl font-black text-xs uppercase tracking-widest transition-all ${activeTab === 'vacancies' ? 'bg-slate-900 text-white shadow-xl' : 'text-slate-400 hover:text-slate-600'}`}
 				>
 					Мои Вакансии
 				</button>
 			</div>
+
 			{loading ? (
 				<div className='animate-pulse space-y-4'>
 					{[1, 2].map((i) => (
@@ -1980,22 +2042,33 @@ const ProfilePage: React.FC<{ telegramId: number; user: User | null }> = ({
 				</div>
 			) : (
 				<div className='space-y-4 text-left'>
-					{(activeTab === 'resumes' ? resumes : vacancies).map((i) =>
-						renderCard(i, activeTab === 'resumes' ? 'res' : 'vac'),
+					{/* --- ИЗМЕНЕНИЕ 3: Рендер на основе activeTab (теперь это вычисляемая переменная) --- */}
+					{(activeTab === 'resumes' ? resumes : vacancies).length >
+					0 ? (
+						(activeTab === 'resumes' ? resumes : vacancies).map(
+							(i) =>
+								renderCard(
+									i,
+									activeTab === 'resumes' ? 'res' : 'vac',
+								),
+						)
+					) : (
+						<div className='py-10 text-center text-slate-300 font-bold uppercase text-xs tracking-widest'>
+							{activeTab === 'resumes'
+								? 'У вас пока нет резюме'
+								: 'У вас пока нет вакансий'}
+						</div>
 					)}
 				</div>
 			)}
+
 			{boostTarget && (
 				<div className='fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex items-end justify-center transition-all duration-300'>
-					{/* Фон модалки, закрывающийся при клике на пустую область */}
 					<div
 						className='absolute inset-0'
 						onClick={() => setBoostTarget(null)}
 					/>
-
 					<div className='w-full max-w-md bg-white rounded-t-[3rem] p-8 pb-12 space-y-6 animate-in slide-in-from-bottom duration-300 relative z-[101] shadow-[0_-10px_40px_rgba(0,0,0,0.1)] mb-[70px]'>
-						{/* mb-[70px] — это высота твоего TabBar, чтобы модалка стояла ПОВЕРХ него или ПЕРЕД ним */}
-
 						<div className='text-center space-y-2'>
 							<div className='w-12 h-1.5 bg-slate-100 rounded-full mx-auto mb-4' />
 							<h3 className='text-2xl font-black text-slate-900 leading-tight'>
@@ -2018,7 +2091,7 @@ const ProfilePage: React.FC<{ telegramId: number; user: User | null }> = ({
 							>
 								{isBoosting
 									? 'Применяем...'
-									: 'Поднять за 50 баллов'}
+									: 'Поднять за 400 баллов'}
 							</button>
 
 							<button
@@ -2030,7 +2103,7 @@ const ProfilePage: React.FC<{ telegramId: number; user: User | null }> = ({
 								}
 								className='w-full py-5 bg-emerald-50 text-emerald-600 rounded-2xl font-black uppercase tracking-widest active:scale-95 transition-all'
 							>
-								Поднять за 99 сом
+								Поднять за 20 сом
 							</button>
 
 							<button
@@ -2202,11 +2275,6 @@ const DetailPage: React.FC<{ telegramId: number }> = ({ telegramId }) => {
 							/>
 						</svg>
 					</button>
-					<div className='flex items-center gap-3'>
-						<span className='px-3 py-1 bg-red-50 text-red-700 text-[10px] font-black uppercase tracking-widest rounded-lg'>
-							ID: {item.id}
-						</span>
-					</div>
 				</header>
 
 				<div className='px-6 pt-6 space-y-8 text-left'>
@@ -2338,7 +2406,7 @@ const DetailPage: React.FC<{ telegramId: number }> = ({ telegramId }) => {
 							<DetailRow
 								icon={<UserIconSmall />}
 								label='Условия'
-								value={`Возраст: ${item.minAge || item.age || 18}-${item.maxAge || 65} • Пол: ${item.preferredGender === 'MALE' ? 'Мужчина' : 'Женщина'}`}
+								value={`Возраст: ${item.minAge || item.age || 0}-${item.maxAge || 0} • Пол: ${item.preferredGender === 'MALE' ? 'Мужчина' : 'Женщина'}`}
 							/>
 						</div>
 					</section>
@@ -2361,11 +2429,7 @@ const DetailPage: React.FC<{ telegramId: number }> = ({ telegramId }) => {
 								<ClickIcon /> {stats?.contactClicksCount || 0}
 							</span>
 						</div>
-						<span>
-							{item.createdAt
-								? new Date(item.createdAt).toLocaleDateString()
-								: 'Сегодня'}
-						</span>
+						<span>{formatDate(item.createdAt)}</span>
 					</section>
 				</div>
 
@@ -2629,8 +2693,7 @@ const WithdrawPage: React.FC<{ telegramId: number }> = ({ telegramId }) => {
 				</button>
 
 				<p className='text-[10px] text-slate-400 font-medium text-center uppercase tracking-widest px-8 leading-relaxed'>
-					Заявка будет обработана в течение 24 часов. <br /> Курс: 100
-					PTS = 5 СОМ
+					<br /> Курс: 100 PTS = 5 СОМ
 				</p>
 			</div>
 		</div>
@@ -3340,7 +3403,7 @@ const AppContent: React.FC = () => {
 						element={<SubscriptionPage telegramId={telegramId} />}
 					/>
 					<Route
-						path='/detail'
+						path='/detail/:id'
 						element={<DetailPage telegramId={telegramId} />}
 					/>
 					<Route
