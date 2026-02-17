@@ -1,135 +1,113 @@
-import React, { useEffect, useState } from 'react'
+import React, { useState, useMemo } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { VacancyForm } from './VacancyForm'
 import { ResumeForm } from './ResumeForm'
 import { useToast } from '../../../App'
-import { apiService } from '../../../apiService'
+// Импортируем хуки из твоего API Slice
+import {
+	useGetCitiesQuery,
+	useGetSpheresQuery,
+	useGetVacancyDetailQuery,
+	useGetResumeDetailQuery,
+	useUpdateVacancyMutation,
+	useUpdateResumeMutation,
+	useUploadMediaMutation,
+} from '../../store/store'
 
 const EditPage: React.FC<{ telegramId: number }> = ({ telegramId }) => {
 	const navigate = useNavigate()
 	const location = useLocation()
 	const { showToast } = useToast()
 
-	// Ожидаем, что в state передали { type: 'vac' | 'res', id: number }
-	// Поддерживаем старый формат (existingData) для совместимости, вытаскивая оттуда ID
 	const state = location.state || {}
 	const type = state.type
 	const targetId = state.id || state.existingData?.id
+	const isVac = type === 'vac' || type === 'job'
 
-	const [loading, setLoading] = useState(true)
-	const [initialData, setInitialData] = useState<any>(null)
+	// 1. Загрузка справочников (из кэша, если уже загружены)
+	const { data: cities = [] } = useGetCitiesQuery(telegramId)
+	const { data: spheres = [] } = useGetSpheresQuery(telegramId)
 
-	const [cities, setCities] = useState([])
-	const [spheres, setSpheres] = useState([])
+	// 2. Загрузка данных конкретной записи
+	// Используем skip, чтобы не делать лишний запрос
+	const { data: vacData, isLoading: vacLoading } = useGetVacancyDetailQuery(
+		{ id: targetId, tid: telegramId, isProfile: true },
+		{ skip: !isVac || !targetId },
+	)
+	const { data: resData, isLoading: resLoading } = useGetResumeDetailQuery(
+		{ id: targetId, tid: telegramId, isProfile: true },
+		{ skip: isVac || !targetId },
+	)
 
-	// Новые файлы, выбранные в процессе редактирования
+	// 3. Мутации
+	const [updateVacancy] = useUpdateVacancyMutation()
+	const [updateResume] = useUpdateResumeMutation()
+	const [uploadMedia] = useUploadMediaMutation()
+
+	const [isSubmitting, setIsSubmitting] = useState(false)
 	const [newPhotos, setNewPhotos] = useState<File[]>([])
 	const [newVideos, setNewVideos] = useState<File[]>([])
 
-	// 1. Загрузка справочников и Данных вакансии/резюме
-	useEffect(() => {
-		if (!targetId || !type) {
-			navigate('/profile')
-			return
-		}
-
-		const fetchData = async () => {
-			setLoading(true)
-			try {
-				// Запускаем все запросы параллельно для скорости
-				const isVac = type === 'vac' || type === 'job'
-
-				// Формируем промис для получения основных данных
-				// Важно: isProfile = true, так как это редактирование
-				const mainDataPromise = isVac
-					? apiService.getVacancy(targetId, telegramId, true)
-					: apiService.getResume(targetId, telegramId, true)
-
-				const [mainData, citiesData, spheresData] = await Promise.all([
-					mainDataPromise,
-					apiService.getCities(telegramId),
-					apiService.getSpheres(telegramId),
-				])
-
-				setCities(citiesData)
-				setSpheres(spheresData)
-
-				// Подготавливаем данные для формы (превращаем объекты в ID)
-				const prepared = prepareDataForForm(mainData)
-				setInitialData(prepared)
-			} catch (e) {
-				console.error(e)
-				showToast('Ошибка при загрузке данных', 'error')
-				navigate('/profile')
-			} finally {
-				setLoading(false)
-			}
-		}
-
-		fetchData()
-	}, [telegramId, targetId, type, navigate, showToast])
-
-	// Вспомогательная функция для преобразования данных API в формат формы
-	const prepareDataForForm = (data: any) => {
+	// Подготавливаем данные для формы (превращаем объекты в ID)
+	const initialData = useMemo(() => {
+		const data: any = isVac ? vacData : resData
 		if (!data) return null
+
 		return {
 			...data,
-			// Если API возвращает объект city: {id: 1, name: ...}, берем id
-			// Если API возвращает просто cityId, берем его
 			cityId: data.city?.id || data.cityId,
 			sphereId: data.sphere?.id || data.sphereId,
 			categoryId: data.category?.id || data.categoryId,
 			subcategoryId: data.subcategory?.id || data.subcategoryId,
-			// Гарантируем, что experienceInYear это число
 			experienceInYear: data.experienceInYear
 				? Number(data.experienceInYear)
 				: 0,
-			// Для резюме
 			experience: data.experience ? Number(data.experience) : 0,
 		}
-	}
+	}, [isVac, vacData, resData])
 
 	const handleUpdate = async (formData: any) => {
-		setLoading(true)
+		if (!targetId) return
+
+		setIsSubmitting(true)
 		try {
-			const isVac = type === 'vac' || type === 'job'
-
-			// 1. Обновляем текстовые данные
+			// 1. Обновляем текст
 			if (isVac) {
-				await apiService.updateVacancy(targetId, telegramId, formData)
+				await updateVacancy({
+					id: targetId,
+					tid: telegramId,
+					data: formData,
+				}).unwrap()
 			} else {
-				await apiService.updateResume(targetId, telegramId, formData)
+				await updateResume({
+					id: targetId,
+					tid: telegramId,
+					data: formData,
+				}).unwrap()
 			}
 
-			// 2. Загружаем НОВЫЕ медиафайлы (если выбрали)
-			// Примечание: Старые фото обычно остаются на сервере, если API обновления не стирает их.
+			const entity = isVac ? 'vacancies' : 'resumes'
+
+			// 2. Загружаем НОВЫЕ фото
 			for (const file of newPhotos) {
-				if (isVac)
-					await apiService.uploadVacancyPhoto(
-						targetId,
-						telegramId,
-						file,
-					)
-				else
-					await apiService.uploadResumePhoto(
-						targetId,
-						telegramId,
-						file,
-					)
+				await uploadMedia({
+					entity,
+					id: targetId,
+					tid: telegramId,
+					file,
+					mediaType: 'photo',
+				}).unwrap()
 			}
+
+			// 3. Загружаем НОВЫЕ видео
 			for (const file of newVideos) {
-				if (isVac)
-					await apiService.uploadVacancyVideo(
-						targetId,
-						telegramId,
-						file,
-					)
-				else
-					await apiService.uploadResumeVideo(
-						targetId,
-						telegramId,
-						file,
-					)
+				await uploadMedia({
+					entity,
+					id: targetId,
+					tid: telegramId,
+					file,
+					mediaType: 'video',
+				}).unwrap()
 			}
 
 			showToast('Изменения сохранены! ✨')
@@ -138,11 +116,14 @@ const EditPage: React.FC<{ telegramId: number }> = ({ telegramId }) => {
 			console.error(e)
 			showToast('Ошибка при обновлении', 'error')
 		} finally {
-			setLoading(false)
+			setIsSubmitting(false)
 		}
 	}
 
-	if (loading && !initialData) {
+	// Общий лоадер: ждем данные вакансии/резюме
+	const isLoading = isVac ? vacLoading : resLoading
+
+	if (isLoading || !initialData) {
 		return (
 			<div className='min-h-screen flex items-center justify-center bg-white'>
 				<div className='w-8 h-8 border-2 border-slate-900 border-t-transparent rounded-full animate-spin' />
@@ -170,7 +151,7 @@ const EditPage: React.FC<{ telegramId: number }> = ({ telegramId }) => {
 			</header>
 
 			<div className='p-6'>
-				{type === 'vac' || type === 'job' ? (
+				{isVac ? (
 					<VacancyForm
 						telegramId={telegramId}
 						cities={cities}
@@ -181,7 +162,7 @@ const EditPage: React.FC<{ telegramId: number }> = ({ telegramId }) => {
 							setNewPhotos(p)
 							setNewVideos(v)
 						}}
-						loading={loading}
+						loading={isSubmitting}
 					/>
 				) : (
 					<ResumeForm
@@ -194,7 +175,7 @@ const EditPage: React.FC<{ telegramId: number }> = ({ telegramId }) => {
 							setNewPhotos(p)
 							setNewVideos(v)
 						}}
-						loading={loading}
+						loading={isSubmitting}
 					/>
 				)}
 			</div>

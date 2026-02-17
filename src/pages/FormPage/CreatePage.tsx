@@ -1,72 +1,97 @@
-import React, { useEffect, useState } from 'react'
+import React, { useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
-import { apiService } from '../../../apiService'
 import { useToast } from '../../../App'
 import { VacancyForm } from './VacancyForm'
 import { ResumeForm } from './ResumeForm'
+// Импортируем хуки из твоего нового API Slice
+import {
+	useGetCitiesQuery,
+	useGetSpheresQuery,
+	useCreateVacancyMutation,
+	useCreateResumeMutation,
+	useUploadMediaMutation,
+} from '../../store/store'
 
 const CreatePage: React.FC<{ telegramId: number }> = ({ telegramId }) => {
 	const navigate = useNavigate()
 	const location = useLocation()
 	const { showToast } = useToast()
-	const { type } = location.state || { type: 'vac' }
 
-	const [loading, setLoading] = useState(false)
-	const [cities, setCities] = useState([])
-	const [spheres, setSpheres] = useState([])
+	const { type } = location.state || { type: 'vac' }
+	const isVac = type === 'vac' || type === 'job'
+
+	// 1. Получаем справочники (RTK Query сам их закеширует)
+	const { data: cities = [], isLoading: isStaticLoading } =
+		useGetCitiesQuery(telegramId)
+	const { data: spheres = [], isLoading: isSpheresLoading } =
+		useGetSpheresQuery(telegramId)
+
+	// 2. Инициализируем мутации
+	const [createVacancy] = useCreateVacancyMutation()
+	const [createResume] = useCreateResumeMutation()
+	const [uploadMedia] = useUploadMediaMutation()
+
+	// Локальное состояние для процесса отправки и файлов
+	const [isSubmitting, setIsSubmitting] = useState(false)
 	const [photos, setPhotos] = useState<File[]>([])
 	const [videos, setVideos] = useState<File[]>([])
 
-	useEffect(() => {
-		apiService.getCities(telegramId).then(setCities)
-		apiService.getSpheres(telegramId).then(setSpheres)
-	}, [telegramId])
-
 	const handleCreate = async (formData: any) => {
-		setLoading(true)
+		setIsSubmitting(true)
 		try {
-			const isVac = type === 'vac' || type === 'job'
+			// А) Создаем основную запись (Вакансия или Резюме)
 			const res = isVac
-				? await apiService.createVacancy(telegramId, formData)
-				: await apiService.createResume(telegramId, formData)
+				? await createVacancy({
+						tid: telegramId,
+						data: formData,
+					}).unwrap()
+				: await createResume({
+						tid: telegramId,
+						data: formData,
+					}).unwrap()
 
 			const resultId = res.id
+			const entity = isVac ? 'vacancies' : 'resumes'
 
-			// Загрузка медиа
-			for (const f of photos) {
-				isVac
-					? await apiService.uploadVacancyPhoto(
-							resultId,
-							telegramId,
-							f,
-						)
-					: await apiService.uploadResumePhoto(
-							resultId,
-							telegramId,
-							f,
-						)
+			// Б) Загрузка фото по очереди
+			for (const file of photos) {
+				await uploadMedia({
+					entity,
+					id: resultId,
+					tid: telegramId,
+					file,
+					mediaType: 'photo',
+				}).unwrap()
 			}
-			for (const v of videos) {
-				isVac
-					? await apiService.uploadVacancyVideo(
-							resultId,
-							telegramId,
-							v,
-						)
-					: await apiService.uploadResumeVideo(
-							resultId,
-							telegramId,
-							v,
-						)
+
+			// В) Загрузка видео по очереди
+			for (const file of videos) {
+				await uploadMedia({
+					entity,
+					id: resultId,
+					tid: telegramId,
+					file,
+					mediaType: 'video',
+				}).unwrap()
 			}
 
 			showToast('Успешно опубликовано!')
 			navigate('/profile')
 		} catch (e) {
+			console.error('Ошибка создания:', e)
 			showToast('Ошибка при создании', 'error')
 		} finally {
-			setLoading(false)
+			setIsSubmitting(false)
 		}
+	}
+
+	// Общий лоадер для первичной загрузки справочников
+	if (isStaticLoading || isSpheresLoading) {
+		return (
+			<div className='min-h-screen flex items-center justify-center bg-white'>
+				<div className='w-10 h-10 border-[3px] border-slate-900 border-t-transparent rounded-full animate-spin' />
+			</div>
+		)
 	}
 
 	return (
@@ -79,16 +104,17 @@ const CreatePage: React.FC<{ telegramId: number }> = ({ telegramId }) => {
 			>
 				<button
 					onClick={() => navigate(-1)}
-					className='w-10 h-10 bg-slate-50 rounded-xl flex items-center justify-center text-slate-600'
+					className='w-10 h-10 bg-slate-50 rounded-xl flex items-center justify-center text-slate-600 active:scale-95 transition-transform'
 				>
 					←
 				</button>
 				<h2 className='text-2xl font-black text-slate-900'>
-					{type === 'vac' ? 'Новая вакансия' : 'Новое резюме'}
+					{isVac ? 'Новая вакансия' : 'Новое резюме'}
 				</h2>
 			</header>
+
 			<div className='p-6'>
-				{type === 'vac' || type === 'job' ? (
+				{isVac ? (
 					<VacancyForm
 						telegramId={telegramId}
 						cities={cities}
@@ -98,7 +124,7 @@ const CreatePage: React.FC<{ telegramId: number }> = ({ telegramId }) => {
 							setPhotos(p)
 							setVideos(v)
 						}}
-						loading={loading}
+						loading={isSubmitting}
 					/>
 				) : (
 					<ResumeForm
@@ -110,7 +136,7 @@ const CreatePage: React.FC<{ telegramId: number }> = ({ telegramId }) => {
 							setPhotos(p)
 							setVideos(v)
 						}}
-						loading={loading}
+						loading={isSubmitting}
 					/>
 				)}
 			</div>

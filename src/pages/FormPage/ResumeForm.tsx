@@ -2,7 +2,10 @@ import React, { useEffect, useState } from 'react'
 import { useForm, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { ResumeFormData, resumeSchema } from './schemas'
-import { apiService } from '../../../apiService'
+import {
+	useGetCategoriesQuery,
+	useGetSubcategoriesQuery,
+} from '../../store/store'
 import { FormField } from '.'
 import { ElegantSelect } from '../../../App'
 
@@ -43,22 +46,36 @@ export const ResumeForm: React.FC<Props> = ({
 			sphereId: 0,
 			categoryId: 0,
 			subcategoryId: 0,
-			age: 18,
+			age: null,
 			experience: 0,
 			gender: 'MALE',
 			description: '',
 		},
 	})
 
-	const [categories, setCategories] = useState<any[]>([])
-	const [subcategories, setSubcategories] = useState<any[]>([])
+	// Следим за изменениями для зависимых запросов
+	const selectedSphere = watch('sphereId')
+	const selectedCategory = watch('categoryId')
+
+	// --- RTK QUERY ХУКИ ВМЕСТО СТАРЫХ EFFECT ---
+
+	// Категории (авто-запрос при смене сферы)
+	const { data: categories = [], isFetching: isCatLoading } =
+		useGetCategoriesQuery(
+			{ tid: telegramId, sid: selectedSphere },
+			{ skip: selectedSphere === 0 }, // Не грузим, если сфера не выбрана
+		)
+
+	// Подкатегории (авто-запрос при смене категории)
+	const { data: subcategories = [], isFetching: isSubCatLoading } =
+		useGetSubcategoriesQuery(
+			{ tid: telegramId, cid: selectedCategory },
+			{ skip: selectedCategory === 0 }, // Не грузим, если категория не выбрана
+		)
 
 	// Состояния для медиа
 	const [selectedPhotos, setSelectedPhotos] = useState<File[]>([])
 	const [selectedVideos, setSelectedVideos] = useState<File[]>([])
-
-	const selectedSphere = watch('sphereId')
-	const selectedCategory = watch('categoryId')
 
 	// Инициализация данных при редактировании
 	useEffect(() => {
@@ -68,23 +85,7 @@ export const ResumeForm: React.FC<Props> = ({
 	// Передача медиа в родительский компонент
 	useEffect(() => {
 		onMediaChange(selectedPhotos, selectedVideos)
-	}, [selectedPhotos, selectedVideos])
-
-	// Загрузка категорий
-	useEffect(() => {
-		if (selectedSphere > 0)
-			apiService
-				.getCategories(telegramId, selectedSphere)
-				.then(setCategories)
-	}, [selectedSphere, telegramId])
-
-	// Загрузка подкатегорий
-	useEffect(() => {
-		if (selectedCategory > 0)
-			apiService
-				.getSubcategories(telegramId, selectedCategory)
-				.then(setSubcategories)
-	}, [selectedCategory, telegramId])
+	}, [selectedPhotos, selectedVideos, onMediaChange])
 
 	return (
 		<form onSubmit={handleSubmit(onSubmit)} className='space-y-6'>
@@ -110,10 +111,21 @@ export const ResumeForm: React.FC<Props> = ({
 						render={({ field }) => (
 							<input
 								type='number'
-								{...field}
-								onChange={(e) =>
-									field.onChange(Number(e.target.value))
+								// Если значение 0 или undefined, показываем пустую строку
+								value={
+									field.value === 0 || !field.value
+										? ''
+										: field.value
 								}
+								onChange={(e) => {
+									const val = e.target.value
+									// Если строка пустая, шлем undefined, чтобы Zod ругнулся (или разрешил),
+									// но инпут остался пустым
+									field.onChange(
+										val === '' ? undefined : Number(val),
+									)
+								}}
+								placeholder='18'
 								className={inputClass}
 							/>
 						)}
@@ -129,10 +141,16 @@ export const ResumeForm: React.FC<Props> = ({
 						render={({ field }) => (
 							<input
 								type='number'
-								{...field}
-								onChange={(e) =>
-									field.onChange(Number(e.target.value))
-								}
+								// Исправлено: убираем принудительный 0 при отображении
+								value={field.value === 0 ? '' : field.value}
+								onChange={(e) => {
+									const val = e.target.value
+									// Исправлено: позволяем полю быть пустым при вводе
+									field.onChange(
+										val === '' ? '' : Number(val),
+									)
+								}}
+								placeholder='Напишите свой опыт'
 								className={inputClass}
 							/>
 						)}
@@ -183,48 +201,75 @@ export const ResumeForm: React.FC<Props> = ({
 							options={spheres}
 							onChange={(val) => {
 								field.onChange(val)
+								// Сбрасываем зависимые поля
 								setValue('categoryId', 0)
 								setValue('subcategoryId', 0)
 							}}
 						/>
 					)}
 				/>
+
 				{selectedSphere > 0 && (
 					<Controller
 						name='categoryId'
 						control={control}
 						render={({ field }) => (
-							<ElegantSelect
-								placeholder=''
-								label='Категория'
-								value={field.value}
-								options={categories}
-								onChange={(val) => {
-									field.onChange(val)
-									setValue('subcategoryId', 0)
-								}}
-							/>
+							<div
+								className={
+									isCatLoading
+										? 'opacity-60 pointer-events-none'
+										: ''
+								}
+							>
+								<ElegantSelect
+									placeholder={
+										isCatLoading
+											? 'Загрузка...'
+											: 'Выберите категорию'
+									}
+									label='Категория'
+									value={field.value}
+									options={categories}
+									onChange={(val) => {
+										field.onChange(val)
+										setValue('subcategoryId', 0)
+									}}
+								/>
+							</div>
 						)}
 					/>
 				)}
+
 				{selectedCategory > 0 && subcategories.length > 0 && (
 					<Controller
 						name='subcategoryId'
 						control={control}
 						render={({ field }) => (
-							<ElegantSelect
-								placeholder=''
-								label='Подкатегория'
-								value={field.value}
-								options={subcategories}
-								onChange={field.onChange}
-							/>
+							<div
+								className={
+									isSubCatLoading
+										? 'opacity-60 pointer-events-none'
+										: ''
+								}
+							>
+								<ElegantSelect
+									placeholder={
+										isSubCatLoading
+											? 'Загрузка...'
+											: 'Выберите подкатегорию'
+									}
+									label='Подкатегория'
+									value={field.value}
+									options={subcategories}
+									onChange={field.onChange}
+								/>
+							</div>
 						)}
 					/>
 				)}
 			</div>
 
-			{/* Блок Медиа (Фото и Видео с удалением) */}
+			{/* Блок Медиа */}
 			<div className='space-y-4'>
 				<label className='block text-sm font-bold text-slate-700 ml-1'>
 					Фото и Видео

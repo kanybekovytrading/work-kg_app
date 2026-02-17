@@ -1,8 +1,17 @@
-import { apiService } from '../../apiService'
+import {
+	useGetResumeDetailQuery,
+	useGetVacancyDetailQuery,
+	useGetResumeStatsQuery,
+	useGetVacancyStatsQuery,
+	useTrackContactClickMutation,
+} from '../../src/store/store'
+
 import { DetailRow, LocationContext, MediaViewer, useToast } from '../../App'
-import { Media } from '../../types'
-import { useContext, useEffect, useState } from 'react'
+import { Media, Vacancy, Resume } from '../../types' // Импортируем типы
+import { useContext, useMemo, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
+
+const tg = (window as any).Telegram?.WebApp
 
 export const ProfileDetail: React.FC<{ telegramId: number }> = ({
 	telegramId,
@@ -13,119 +22,98 @@ export const ProfileDetail: React.FC<{ telegramId: number }> = ({
 	const { showToast } = useToast()
 	const { location: userLocation } = useContext(LocationContext)
 
-	const [item, setItem] = useState<any>(data)
-	const [loading, setLoading] = useState(!data)
-	const [stats, setStats] = useState<any>(null)
 	const [selectedMedia, setSelectedMedia] = useState<Media | null>(null)
 
-	useEffect(() => {
-		const fetchFullDetail = async () => {
-			if (!data?.id) return
-			try {
-				const fullItem =
-					type === 'worker'
-						? await apiService.getResume(data.id, telegramId, true)
-						: await apiService.getVacancy(data.id, telegramId, true)
-				setItem(fullItem)
+	// --- RTK QUERY: ПОЛУЧЕНИЕ ДЕТАЛЕЙ ---
+	const { data: newData, isLoading: itemLoading } =
+		type === 'worker'
+			? useGetResumeDetailQuery(
+					{ id: data?.id, tid: telegramId, isProfile: true },
+					{ skip: !data?.id },
+				)
+			: useGetVacancyDetailQuery(
+					{ id: data?.id, tid: telegramId, isProfile: true },
+					{ skip: !data?.id },
+				)
 
-				const statsRes =
-					type === 'worker'
-						? await apiService.getResumeStats(data.id)
-						: await apiService.getVacancyStats(data.id)
-				setStats(statsRes)
-			} catch (e) {
-				console.error(e)
-			} finally {
-				setLoading(false)
-			}
-		}
-		fetchFullDetail()
-	}, [data, type, telegramId])
+	let item: any = newData
+	// --- RTK QUERY: ПОЛУЧЕНИЕ СТАТИСТИКИ ---
+	const { data: stats } =
+		type === 'worker'
+			? useGetResumeStatsQuery(data?.id, { skip: !data?.id })
+			: useGetVacancyStatsQuery(data?.id, { skip: !data?.id })
+
+	// --- RTK QUERY: ТРЕКИНГ КЛИКА ---
+	const [trackContactClick] = useTrackContactClickMutation()
+
+	// --- ХЕЛПЕРЫ ДЛЯ ТИПИЗАЦИИ (Чтобы TS не ругался) ---
+	const isJob = type === 'job' || type === 'vac'
+	const vacancy = isJob ? (item as Vacancy) : null
+	const resume = !isJob ? (item as Resume) : null
 
 	const handleContactClick = (platform: 'whatsapp' | 'telegram') => {
-		apiService.trackContactClick(
-			type === 'worker' ? 'worker' : 'job',
-			item.id,
-			telegramId,
-		)
+		if (!item) return
+
+		trackContactClick({
+			type: isJob ? 'job' : 'worker',
+			id: item.id,
+			tid: telegramId,
+		})
 
 		showToast(`Переходим в ${platform}...`, 'success')
 
-		const tgApp = window.Telegram?.WebApp
+		// У резюме в твоих типах нет поля phone (оно обычно в вакансиях),
+		// но если оно приходит с бэкенда, используем (item as any).phone
+		const phoneRaw = (item as any).phone || ''
+		const phone = phoneRaw.replace(/\D/g, '')
 
 		if (platform === 'whatsapp') {
-			const phone = item.phone.replace(/\D/g, '')
 			const url = `https://wa.me/${phone}`
-
-			if (tgApp) {
-				// Для WhatsApp ОБЯЗАТЕЛЬНО используем openLink
-				// try_instant_view: false заставляет открыть именно приложение WhatsApp
-				tgApp.openLink(url, { try_instant_view: false })
-			} else {
-				window.open(url, '_blank')
-			}
+			if (tg) tg.openLink(url, { try_instant_view: false })
+			else window.open(url, '_blank')
 		} else {
-			let username = item.telegramUsername || item.userName || ''
+			let username = item.telegramUsername || (item as any).userName || ''
 			username = username.replace(/^@/, '')
 			const url = `https://t.me/${username}`
-
-			if (tgApp) {
-				// Для Telegram ссылок используем специальный метод
-				tgApp.openTelegramLink(url)
-			} else {
-				window.open(url, '_blank')
-			}
+			if (tg) tg.openTelegramLink(url)
+			else window.open(url, '_blank')
 		}
 	}
 
-	// ЛОГИКА ОТКРЫТИЯ 2GIS
 	const open2GISRoute = () => {
-		if (!item.address) return
-
-		// 1. Очищаем и формируем адрес
-		// Убеждаемся, что город и адрес разделены запятой для лучшего поиска
+		if (!item?.address) return
 		const fullAddress = `${item.cityName}, ${item.address}`.trim()
 		const encodedAddress = encodeURIComponent(fullAddress)
-
-		// 2. Формируем URL
-		// Используем стандартный /search/. 2GIS сам найдет объект и предложит кнопку "Маршрут".
-		// Это гораздо стабильнее, чем пытаться пробросить сырой текст в /routeSearch/
 		let url = `https://2gis.kg/search/${encodedAddress}`
 
-		// 3. Если есть координаты пользователя, можно добавить их для центрирования карты,
-		// но для построения маршрута в вебе/приложении 2GIS лучше всего работает чистый поиск.
 		if (userLocation && userLocation.lat && userLocation.lng) {
-			// Добавляем параметр точки старта, если хотим сразу сфокусировать карту на пользователе
-			// Формат 2GIS: ?m=longitude,latitude/zoom
 			url += `?m=${userLocation.lng},${userLocation.lat}%2F15`
 		}
 
-		// В Telegram WebApp лучше использовать внутренний метод открытия ссылок
-		if (window.Telegram?.WebApp) {
-			window.Telegram.WebApp.openLink(url)
-		} else {
-			window.open(url, '_blank')
-		}
+		if (tg) tg.openLink(url)
+		else window.open(url, '_blank')
 	}
 
-	const isLocked = item?.phone ? String(item.phone).includes('*') : false
-	console.log(item, 'random')
-	console.log()
+	const isLocked = useMemo(() => {
+		const phone = (item as any)?.phone
+		if (!phone) return false
+		return String(phone).includes('*')
+	}, [item])
 
 	const navigateToRelatedSearch = () => {
-		console.log(item)
+		if (!item) return
 		navigate('/search', {
 			state: {
-				// Если смотрим вакансию (job), предлагаем найти сотрудников (worker) и наоборот
-				initialType: type === 'job' ? 'worker' : 'job',
+				initialType: isJob ? 'worker' : 'job',
 				initialCityId: item.cityId,
-				initialSphereId: item.sphereId,
+				initialSphereId: (item as any).sphereId,
 				initialCategoryId: item.categoryId,
 				initialSubcategoryId: item.subcategoryId,
 			},
 		})
 	}
-	if (loading)
+
+	if (itemLoading || !item)
 		return (
 			<div className='min-h-screen flex items-center justify-center bg-white'>
 				<div className='w-10 h-10 border-[3px] border-slate-900 border-t-transparent rounded-full animate-spin' />
@@ -163,11 +151,6 @@ export const ProfileDetail: React.FC<{ telegramId: number }> = ({
 							/>
 						</svg>
 					</button>
-					<div className='flex items-center gap-3'>
-						<span className='px-3 py-1 bg-red-50 text-red-700 text-[10px] font-black uppercase tracking-widest rounded-lg'>
-							ID: {item.id}
-						</span>
-					</div>
 				</header>
 
 				<div className='px-6 pt-6 space-y-8 text-left'>
@@ -182,9 +165,9 @@ export const ProfileDetail: React.FC<{ telegramId: number }> = ({
 								)}
 							</div>
 							<h1 className='text-3xl font-black text-slate-900 leading-tight'>
-								{type === 'worker' ? item.name : item.title}
+								{isJob ? vacancy?.title : resume?.name}
 							</h1>
-							{item.companyName && (
+							{isJob && vacancy?.companyName && (
 								<p className='text-sm font-bold text-red-800 flex items-center gap-2'>
 									<svg
 										className='w-4 h-4'
@@ -199,15 +182,14 @@ export const ProfileDetail: React.FC<{ telegramId: number }> = ({
 											d='M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4'
 										/>
 									</svg>
-									{item.companyName}
+									{vacancy.companyName}
 								</p>
 							)}
 						</div>
 						<div className='inline-flex items-center px-6 py-3 bg-slate-50 text-slate-900 text-xl font-black rounded-2xl border border-slate-100 shadow-sm'>
-							{item.salary ||
-								(item.experience !== undefined
-									? `${item.experience}г. опыта`
-									: 'ЗП не указана')}
+							{isJob
+								? vacancy?.salary || 'ЗП не указана'
+								: `${resume?.experience}г. опыта`}
 						</div>
 					</section>
 
@@ -217,7 +199,7 @@ export const ProfileDetail: React.FC<{ telegramId: number }> = ({
 								Галерея работ
 							</h4>
 							<div className='flex gap-4 overflow-x-auto no-scrollbar snap-x snap-mandatory pb-4 px-1'>
-								{item.media
+								{[...item.media]
 									.sort((a: Media) =>
 										a.mediaType === 'VIDEO' ? -1 : 1,
 									)
@@ -242,7 +224,7 @@ export const ProfileDetail: React.FC<{ telegramId: number }> = ({
 											) : (
 												<img
 													src={m.fileUrl}
-													alt={m.fileName}
+													alt=''
 													className='w-full h-full object-cover transition-transform duration-500 group-active:scale-110'
 												/>
 											)}
@@ -251,23 +233,22 @@ export const ProfileDetail: React.FC<{ telegramId: number }> = ({
 							</div>
 						</section>
 					)}
+
 					<div
 						onClick={navigateToRelatedSearch}
 						className='mx-1 p-5 bg-slate-900 rounded-[2rem] flex items-center justify-between group active:scale-[0.98] transition-all cursor-pointer overflow-hidden relative'
 					>
-						{/* Декоративный элемент фона */}
 						<div className='absolute -right-4 -top-4 w-24 h-24 bg-red-800/20 blur-2xl rounded-full'></div>
-
 						<div className='flex items-center gap-4 relative z-10'>
 							<div className='w-12 h-12 bg-white/10 backdrop-blur-md rounded-2xl flex items-center justify-center text-xl'>
-								{type === 'job' ? '🔍' : '💼'}
+								{isJob ? '🔍' : '💼'}
 							</div>
 							<div className='text-left'>
 								<div className='text-[10px] font-black text-red-500 uppercase tracking-[0.2em] mb-0.5'>
 									Рекомендация
 								</div>
 								<div className='text-sm font-black text-white leading-tight'>
-									{type === 'job'
+									{isJob
 										? 'Найти сотрудников в этой категории'
 										: 'Посмотреть вакансии в этой сфере'}
 								</div>
@@ -289,54 +270,60 @@ export const ProfileDetail: React.FC<{ telegramId: number }> = ({
 							</svg>
 						</div>
 					</div>
+
 					<section className='bg-slate-50 p-6 rounded-[2.5rem] border border-slate-100 space-y-6'>
 						<h4 className='text-[10px] font-black text-slate-400 uppercase tracking-widest'>
 							Ключевые детали
 						</h4>
 						<div className='grid grid-cols-1 gap-6'>
-							<DetailRow
-								icon={<ClockIconSmall />}
-								label='График работы'
-								value={item.schedule || 'Не указано'}
-							/>
+							{isJob && (
+								<DetailRow
+									icon={<ClockIconSmall />}
+									label='График работы'
+									value={vacancy?.schedule || 'Не указано'}
+								/>
+							)}
 							<DetailRow
 								icon={<ExpIconSmall />}
 								label='Опыт'
-								value={`${item.experienceInYear || item.experience || 0} лет`}
+								value={`${isJob ? vacancy?.experienceInYear : resume?.experience} лет`}
 							/>
-
-							{/* КЛИКАБЕЛЬНЫЙ АДРЕС */}
-							<div
-								onClick={open2GISRoute}
-								className='cursor-pointer active:opacity-70 transition-opacity'
-							>
-								<DetailRow
-									icon={<LocIconSmall />}
-									label='Адрес / Район (Карта)'
-									value={item.address || 'Центр города'}
-								/>
-								<div className='pl-[56px] text-[9px] font-bold text-emerald-600 uppercase mt-1 flex items-center gap-1'>
-									<svg
-										className='w-3 h-3'
-										fill='none'
-										viewBox='0 0 24 24'
-										stroke='currentColor'
-									>
-										<path
-											strokeLinecap='round'
-											strokeLinejoin='round'
-											strokeWidth='2.5'
-											d='M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7'
-										/>
-									</svg>
-									<span>Открыть маршрут в 2GIS</span>
+							{isJob && vacancy?.address && (
+								<div
+									onClick={open2GISRoute}
+									className='cursor-pointer active:opacity-70 transition-opacity'
+								>
+									<DetailRow
+										icon={<LocIconSmall />}
+										label='Адрес / Район (Карта)'
+										value={vacancy.address}
+									/>
+									<div className='pl-[56px] text-[9px] font-bold text-emerald-600 uppercase mt-1 flex items-center gap-1'>
+										<svg
+											className='w-3 h-3'
+											fill='none'
+											viewBox='0 0 24 24'
+											stroke='currentColor'
+										>
+											<path
+												strokeLinecap='round'
+												strokeLinejoin='round'
+												strokeWidth='2.5'
+												d='M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7'
+											/>
+										</svg>
+										<span>Открыть маршрут в 2GIS</span>
+									</div>
 								</div>
-							</div>
-
+							)}
 							<DetailRow
 								icon={<UserIconSmall />}
 								label='Условия'
-								value={`Возраст: ${item.minAge || item.age || 18}-${item.maxAge || 65} • Пол: ${item.preferredGender === 'MALE' ? 'Мужчина' : 'Женщина'}`}
+								value={
+									isJob
+										? `Возраст: ${vacancy?.minAge}-${vacancy?.maxAge} • Пол: ${vacancy?.preferredGender === 'MALE' ? 'Мужчина' : 'Женщина'}`
+										: `Возраст: ${resume?.age} • Пол: ${resume?.gender === 'MALE' ? 'Мужчина' : 'Женщина'}`
+								}
 							/>
 						</div>
 					</section>
@@ -367,10 +354,10 @@ export const ProfileDetail: React.FC<{ telegramId: number }> = ({
 					</section>
 				</div>
 
+				{/* Footer Buttons remains same... */}
 				<div className='fixed bottom-0 left-0 right-0 p-6 bg-white/90 backdrop-blur-2xl border-t border-slate-100 z-50 shadow-[0_-10px_40px_rgba(0,0,0,0.05)]'>
 					<div className='max-w-xl mx-auto'>
 						{isLocked ? (
-							// БЛОК ДЛЯ КЛЮЧА / ПОДПИСКИ
 							<div className='flex flex-col gap-4 animate-in slide-in-from-bottom duration-500'>
 								<div className='text-center space-y-1'>
 									<p className='text-[10px] font-black text-red-600 uppercase tracking-[0.2em]'>
@@ -382,13 +369,12 @@ export const ProfileDetail: React.FC<{ telegramId: number }> = ({
 								</div>
 								<button
 									onClick={() => navigate('/subscription')}
-									className='h-16 bg-slate-900 text-white rounded-2xl font-black uppercase tracking-widest shadow-xl active:scale-95 transition-all flex items-center justify-center gap-3 border-2 border-slate-900'
+									className='h-16 bg-slate-900 text-white rounded-2xl font-black uppercase tracking-widest shadow-xl flex items-center justify-center gap-3 border-2 border-slate-900'
 								>
 									<span>💎</span> Купить PRO Доступ
 								</button>
 							</div>
 						) : (
-							// БЛОК С КНОПКАМИ (ОТОБРАЗИТСЯ, ЕСЛИ НЕТ ЗВЕЗДОЧЕК)
 							<div className='grid grid-cols-2 gap-3 animate-in fade-in zoom-in-95 duration-300'>
 								<button
 									onClick={() =>
@@ -415,7 +401,7 @@ export const ProfileDetail: React.FC<{ telegramId: number }> = ({
 	)
 }
 
-// Small Icons
+// ... SVG Components remain the same
 const ClockIconSmall = () => (
 	<svg
 		className='w-4 h-4'
@@ -482,7 +468,6 @@ const UserIconSmall = () => (
 		/>
 	</svg>
 )
-
 const ViewIcon = () => (
 	<svg
 		className='w-3.5 h-3.5'
