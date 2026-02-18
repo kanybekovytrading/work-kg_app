@@ -15,6 +15,27 @@ import {
 	Navigate,
 	useSearchParams,
 } from 'react-router-dom'
+import {
+	Home,
+	Search,
+	Plus,
+	Star,
+	Bell,
+	ChevronRight,
+	Zap,
+	Gamepad2,
+	Lock,
+	Eye,
+	MousePointer2,
+	Trophy,
+	Users,
+	Wallet,
+	Settings,
+	ArrowRight,
+	Filter,
+	CheckCircle2,
+	Briefcase,
+} from 'lucide-react'
 import { BANK_SERVICES, formatPhoneKG, formatDate } from './constants'
 import { User, Media } from './types'
 import { GamesPage } from './src/pages/games/ui/GamesPage'
@@ -76,6 +97,11 @@ const ToastProvider: React.FC<{ children: React.ReactNode }> = ({
 		(message: string, type: 'success' | 'error' | 'info' = 'success') => {
 			setToast({ message, type })
 			setTimeout(() => setToast(null), 3000)
+			if (tg?.HapticFeedback) {
+				tg.HapticFeedback.notificationOccurred(
+					type === 'error' ? 'error' : 'success',
+				)
+			}
 		},
 		[],
 	)
@@ -84,18 +110,23 @@ const ToastProvider: React.FC<{ children: React.ReactNode }> = ({
 		<ToastContext.Provider value={{ showToast }}>
 			{children}
 			{toast && (
-				<div className='fixed top-6 left-1/2 -translate-x-1/2 z-[200] w-[90%] max-w-sm'>
+				<div className='fixed top-14 left-1/2 -translate-x-1/2 z-[200] w-[85%] max-w-sm animate-in fade-in slide-in-from-top-4 duration-300'>
 					<div
-						className={`p-4 rounded-2xl shadow-2xl flex items-center justify-center animate-in fade-in slide-in-from-top-4 duration-300 ${toast.type === 'success' ? 'brand-gradient text-white' : toast.type === 'error' ? 'bg-rose-600 text-white' : 'bg-slate-800 text-white'}`}
+						className={`px-6 py-4 rounded-[2rem] shadow-2xl flex items-center justify-center font-bold text-sm backdrop-blur-md ${
+							toast.type === 'success'
+								? 'bg-emerald-600/90 text-white'
+								: toast.type === 'error'
+									? 'bg-rose-600/90 text-white'
+									: 'bg-slate-800/90 text-white'
+						}`}
 					>
-						<div className='text-sm font-bold'>{toast.message}</div>
+						{toast.message}
 					</div>
 				</div>
 			)}
 		</ToastContext.Provider>
 	)
 }
-
 // --- GEOLOCATION & MAP COMPONENTS ---
 
 export const LocationContext = React.createContext<{
@@ -2336,7 +2367,8 @@ export const BonusesPage: React.FC<{ telegramId: number }> = ({
 	const handleShare = () => {
 		if (!info?.referralLink) return
 		const shareUrl = `https://t.me/share/url?url=${encodeURIComponent(info.referralLink)}&text=${encodeURIComponent('Зарабатывай вместе с WORK KG! 💸')}`
-		window.open(shareUrl, '_blank')
+		tg.openTelegramLink(shareUrl)
+		tg.HapticFeedback.impactOccurred('medium')
 	}
 
 	// RTK Query не имеет автоматического хука для "проверки по клику" в стиле query,
@@ -2548,18 +2580,72 @@ const AppContent: React.FC = () => {
 		if (tg) {
 			tg.ready()
 			tg.expand()
-			try {
-				tg.requestFullscreen()
-				if (tg.disableVerticalSwipes) {
-					tg.enableClosingConfirmation()
-					tg.disableVerticalSwipes()
-				}
-			} catch (e) {
-				console.error(e)
-			}
-		}
-	}, [])
 
+			/**
+			 * Version-safe features placement
+			 * Fullscreen is supported from 8.0
+			 * disableVerticalSwipes is supported from 7.7
+			 * closingConfirmation is supported from 6.2
+			 */
+			const version = tg.version || '6.0'
+
+			if (tg.isVersionAtLeast('8.0') && tg.requestFullscreen) {
+				try {
+					tg.requestFullscreen()
+				} catch (e) {
+					console.warn('Fullscreen request failed', e)
+				}
+			}
+
+			if (tg.isVersionAtLeast('7.7') && tg.disableVerticalSwipes) {
+				tg.disableVerticalSwipes()
+			}
+
+			if (tg.isVersionAtLeast('6.2') && tg.enableClosingConfirmation) {
+				tg.enableClosingConfirmation()
+			}
+
+			const syncTheme = () => {
+				const root = document.documentElement
+				if (tg.themeParams.bg_color)
+					root.style.setProperty(
+						'--tg-bg-color',
+						tg.themeParams.bg_color,
+					)
+				if (tg.themeParams.secondary_bg_color)
+					root.style.setProperty(
+						'--tg-secondary-bg-color',
+						tg.themeParams.secondary_bg_color,
+					)
+				if (tg.themeParams.text_color)
+					root.style.setProperty(
+						'--tg-text-color',
+						tg.themeParams.text_color,
+					)
+				if (tg.themeParams.hint_color)
+					root.style.setProperty(
+						'--tg-hint-color',
+						tg.themeParams.hint_color,
+					)
+			}
+			syncTheme()
+			tg.onEvent('themeChanged', syncTheme)
+		}
+
+		// Global script error logger
+		const handleGlobalError = (event: ErrorEvent) => {
+			console.error(
+				'[Global Error]:',
+				event.message,
+				'at',
+				event.filename,
+				':',
+				event.lineno,
+			)
+		}
+		window.addEventListener('error', handleGlobalError)
+		return () => window.removeEventListener('error', handleGlobalError)
+	}, [])
 	// Управление нативной кнопкой "Назад"
 	useEffect(() => {
 		if (!tg) return
@@ -2634,6 +2720,13 @@ const AppContent: React.FC = () => {
 		location.pathname,
 	)
 
+	const handleNav = (path: string) => {
+		if (tg?.HapticFeedback) {
+			tg.HapticFeedback.impactOccurred('light')
+		}
+		navigate(path)
+	}
+
 	return (
 		<div className='min-h-screen flex flex-col bg-slate-50 text-slate-900 overflow-x-hidden'>
 			<main
@@ -2687,35 +2780,48 @@ const AppContent: React.FC = () => {
 			</main>
 
 			{showNav && (
-				<nav className='fixed bottom-0 left-0 right-0 z-50 px-6 pb-8 pt-4 bg-white/40 backdrop-blur-xl'>
-					<div className='max-w-md mx-auto bg-white border border-slate-100 rounded-[2.5rem] p-3 flex justify-around items-center shadow-2xl relative'>
-						<NavTab
+				<nav className='fixed bottom-8 left-1/2 -translate-x-1/2 w-[92%] max-w-md z-50 animate-in slide-in-from-bottom-8 duration-700 delay-300 fill-mode-both'>
+					<div className='bg-secondary/80 backdrop-blur-3xl border border-white/10 rounded-[2.8rem] p-3 flex justify-between items-center shadow-[0_20px_50px_rgba(0,0,0,0.2)]'>
+						<NavButton
 							active={location.pathname === '/'}
-							onClick={() => navigate('/')}
-							icon={<HomeIcon />}
+							onClick={() => handleNav('/')}
+							icon={<Home size={22} />}
+							label='Дом'
 						/>
-						<NavTab
+						<NavButton
 							active={location.pathname === '/search'}
-							onClick={() => navigate('/search')}
-							icon={<SearchIcon />}
+							onClick={() => handleNav('/search')}
+							icon={<Search size={22} />}
+							label='Поиск'
 						/>
 
-						<div
-							className='w-16 h-16 bg-slate-900 text-white rounded-full flex items-center justify-center shadow-xl -mt-10 border-4 border-white transition-transform active:scale-95 cursor-pointer'
-							onClick={() => setIsPlusOpen(true)}
-						>
-							<PlusIcon />
+						<div className='relative -top-10 group'>
+							<div className='absolute inset-0 bg-red-600 rounded-full blur-xl opacity-30 group-active:opacity-50 transition-all'></div>
+							<button
+								onClick={() => {
+									if (tg?.HapticFeedback)
+										tg.HapticFeedback.impactOccurred(
+											'heavy',
+										)
+									navigate('/create')
+								}}
+								className='relative w-16 h-16 bg-red-600 rounded-full flex items-center justify-center shadow-2xl text-white active:scale-90 transition-transform'
+							>
+								<Plus size={36} strokeWidth={3} />
+							</button>
 						</div>
 
-						<NavTab
+						<NavButton
 							active={location.pathname === '/bonuses'}
-							onClick={() => navigate('/bonuses')}
-							icon={<StarIcon />}
+							onClick={() => handleNav('/bonuses')}
+							icon={<Star size={22} />}
+							label='Бонусы'
 						/>
-						<NavTab
+						<NavButton
 							active={location.pathname === '/profile'}
-							onClick={() => navigate('/profile')}
+							onClick={() => handleNav('/profile')}
 							icon={<UserIcon />}
+							label='Профиль'
 						/>
 					</div>
 				</nav>
@@ -2768,6 +2874,25 @@ const AppContent: React.FC = () => {
 		</div>
 	)
 }
+
+const NavButton = ({ active, icon, label, onClick }: any) => (
+	<button
+		onClick={onClick}
+		className={`flex flex-col items-center gap-1.5 flex-1 transition-all duration-300 ${active ? 'text-red-600 scale-110' : 'text-hint hover:text-main'}`}
+	>
+		<div
+			className={`transition-transform duration-300 ${active ? 'translate-y-[-2px]' : ''}`}
+		>
+			{icon}
+		</div>
+		<span
+			className={`text-[8px] font-black uppercase tracking-widest transition-all ${active ? 'opacity-100' : 'opacity-40'}`}
+		>
+			{label}
+		</span>
+		{active && <div className='w-1 h-1 bg-red-600 rounded-full'></div>}
+	</button>
+)
 
 const NavTab = ({ active, icon, onClick }: any) => (
 	<button
