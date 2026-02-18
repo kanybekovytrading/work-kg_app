@@ -614,72 +614,95 @@ const HomePage: React.FC<{ user: User | null }> = ({ user }) => {
 		{ id: 7, name: 'Общепит', icon: '☕️' },
 	]
 
+	const handleAction = (
+		path: string,
+		impact: 'light' | 'medium' | 'heavy' = 'light',
+		state?: any,
+	) => {
+		if (tg?.HapticFeedback) tg.HapticFeedback.impactOccurred(impact)
+		navigate(path, { state })
+	}
+
 	return (
-		<div className='pb-40 animate-in fade-in duration-500 bg-white min-h-screen main-content-offset'>
-			<header className='px-6 pb-4 pt-4 flex items-center justify-between sticky top-0 bg-white/90 backdrop-blur-md z-40 border-b border-slate-50'>
+		<div className='pb-40 animate-in fade-in duration-500 bg-main min-h-screen safe-top'>
+			<header className='px-6 pb-4 pt-4 flex items-center justify-between sticky top-0 bg-main/80 backdrop-blur-xl z-40 border-b border-white/5'>
 				<div className='flex items-center gap-2 font-black text-2xl tracking-tighter'>
-					<span className='text-slate-900'>WORK</span>
+					<span className='text-main'>WORK</span>
 					<span className='text-red-700'>KG</span>
 				</div>
+				<button
+					onClick={() => tg?.HapticFeedback?.impactOccurred('light')}
+					className='p-2.5 bg-secondary rounded-2xl active:scale-90 transition-all border border-white/5'
+				>
+					<Bell size={20} className='text-main' />
+				</button>
 			</header>
 
 			{/* Bento Action Cards */}
 			<div className='px-6 mt-6 space-y-4 text-left'>
 				<div
-					onClick={() =>
-						navigate('/create', { state: { type: 'res' } })
-					}
-					className='brand-gradient p-6 rounded-[2.2rem] text-white shadow-xl shadow-red-100 active:scale-[0.98] transition-all relative overflow-hidden cursor-pointer'
+					onClick={() => handleAction('/create', 'medium')}
+					className='brand-gradient p-7 rounded-[2.5rem] text-white shadow-2xl shadow-red-900/10 active:scale-[0.98] transition-all relative overflow-hidden cursor-pointer'
 				>
-					<div className='absolute -right-4 -bottom-4 w-32 h-32 bg-white/10 rounded-full blur-3xl'></div>
-					<h3 className='text-2xl font-black uppercase tracking-tight'>
-						Начни поиск 🚀
-					</h3>
-					<p className='text-[11px] text-white/80 font-bold uppercase mt-2 tracking-widest'>
-						Создай резюме за 60 секунд
-					</p>
+					<div className='relative z-10'>
+						<h3 className='text-2xl font-black uppercase tracking-tight'>
+							Начни поиск 🚀
+						</h3>
+						<p className='text-[11px] text-white/80 font-bold uppercase mt-2 tracking-widest flex items-center gap-2'>
+							Создай резюме за 60 секунд <ArrowRight size={12} />
+						</p>
+					</div>
+					<Zap className='absolute -right-6 -bottom-6 w-36 h-36 text-white/10 rotate-12' />
 				</div>
 
 				<div className='grid grid-cols-2 gap-4'>
 					<div
-						onClick={() => navigate('/games')}
-						className='bg-indigo-600 p-5 rounded-[2rem] text-white shadow-lg h-32 flex flex-col justify-end relative overflow-hidden cursor-pointer active:scale-95 transition-all'
+						onClick={() => handleAction('/games')}
+						className='bg-indigo-600 p-6 rounded-[2.2rem] text-white shadow-lg h-36 flex flex-col justify-between relative overflow-hidden cursor-pointer active:scale-95 transition-all'
 					>
-						<h4 className='font-black text-sm uppercase'>
-							PLAY ZONE
-						</h4>
-						<p className='text-[9px] text-indigo-200 font-bold uppercase mt-1'>
-							Отдохни
-						</p>
+						<div className='w-10 h-10 bg-white/20 rounded-2xl flex items-center justify-center backdrop-blur-md'>
+							<Gamepad2 size={20} />
+						</div>
+						<div>
+							<h4 className='font-black text-sm uppercase'>
+								PLAY ZONE
+							</h4>
+							<p className='text-[9px] text-indigo-200 font-bold uppercase mt-1'>
+								Отдохни и заработай
+							</p>
+						</div>
 					</div>
 					<div
-						onClick={() => navigate('/subscription')}
-						className='bg-slate-900 p-5 rounded-[2rem] text-white shadow-lg h-32 flex flex-col justify-end relative overflow-hidden cursor-pointer active:scale-95 transition-all'
+						onClick={() => handleAction('/subscription')}
+						className='bg-secondary p-6 rounded-[2.2rem] text-main border border-white/10 shadow-lg h-36 flex flex-col justify-between relative overflow-hidden cursor-pointer active:scale-95 transition-all'
 					>
-						<h4 className='font-black text-sm uppercase'>
-							PRO ДОСТУП
-						</h4>
-						<p className='text-[9px] text-slate-400 font-bold uppercase mt-1'>
-							Контакты
-						</p>
+						<div className='w-10 h-10 bg-red-700 rounded-2xl flex items-center justify-center text-white'>
+							<Lock size={20} />
+						</div>
+						<div>
+							<h4 className='font-black text-sm uppercase'>
+								PRO ДОСТУП
+							</h4>
+							<p className='text-[9px] text-hint font-bold uppercase mt-1'>
+								Открой контакты
+							</p>
+						</div>
 					</div>
 				</div>
 			</div>
 
 			{/* Spheres Horizontal Scroll */}
-			<div className='overflow-x-auto no-scrollbar flex gap-4 px-6 mb-8 mt-8'>
+			<div className='overflow-x-auto no-scrollbar flex gap-4 px-6 mb-8 mt-10'>
 				{spheres.map((s) => (
 					<div
 						key={s.id}
-						onClick={() =>
-							navigate('/search', { state: { initialSphere: s } })
-						}
-						className='flex-shrink-0 flex flex-col items-center gap-2 cursor-pointer'
+						onClick={() => handleAction('/search', 'light')}
+						className='flex-shrink-0 flex flex-col items-center gap-3 cursor-pointer'
 					>
-						<div className='w-14 h-14 bg-slate-50 border border-slate-100 rounded-2xl flex items-center justify-center text-xl transition-all active:scale-90'>
+						<div className='w-16 h-16 bg-secondary border border-white/5 rounded-[1.8rem] flex items-center justify-center text-2xl transition-all active:scale-90 shadow-sm'>
 							{s.icon}
 						</div>
-						<span className='text-[10px] font-black text-slate-400 uppercase tracking-tighter text-center'>
+						<span className='text-[10px] font-black text-hint uppercase tracking-tighter text-center'>
 							{s.name.split('-')[0]}
 						</span>
 					</div>
@@ -687,98 +710,94 @@ const HomePage: React.FC<{ user: User | null }> = ({ user }) => {
 			</div>
 
 			{/* Recommendations List */}
-			<div className='px-6 space-y-4'>
-				<div className='flex justify-between items-center mb-2'>
-					<h3 className='text-xl font-black text-slate-900 tracking-tight'>
+			<div className='px-6 space-y-5'>
+				<div className='flex justify-between items-center mb-2 px-1'>
+					<h3 className='text-xl font-black text-main tracking-tight uppercase text-xs tracking-[0.15em] opacity-60'>
 						Рекомендуем
 					</h3>
 					<button
-						onClick={() => navigate('/search')}
-						className='text-[11px] font-black text-red-700 uppercase tracking-widest'
+						onClick={() => handleAction('/search')}
+						className='text-[11px] font-black text-red-700 uppercase tracking-widest flex items-center gap-1'
 					>
-						Все →
+						Все <ChevronRight size={14} />
 					</button>
 				</div>
 
 				{isLoading ? (
 					<div className='flex justify-center py-20'>
-						<div className='w-8 h-8 border-[3px] border-slate-100 border-t-red-700 rounded-full animate-spin' />
+						<div className='w-10 h-10 border-4 border-white/5 border-t-red-700 rounded-full animate-spin' />
 					</div>
 				) : (
-					<div className='space-y-3 pb-20'>
-						{recommendations.map((vacancy) => (
+					<div className='space-y-4 pb-20'>
+						{recommendations.map((vacancy: any) => (
 							<div
 								key={vacancy.id}
 								onClick={() =>
-									navigate(`/detail/${vacancy.id}`, {
-										state: { type: 'job', data: vacancy },
-									})
+									handleAction(
+										`/detail/${vacancy.id}`,
+										'light',
+										{ type: 'job', data: vacancy },
+									)
 								}
-								className={`relative bg-white border  bg-amber-50/20'  'border-slate-100' p-4 rounded-[2rem] shadow-sm flex items-start gap-4 active:scale-[0.98] transition-all cursor-pointer`}
+								className={`relative bg-secondary border border-white/5 p-5 rounded-[2.5rem] shadow-sm flex flex-col gap-4 active:scale-[0.98] transition-all cursor-pointer overflow-hidden`}
 							>
-								{/* Media Icon */}
-								<div className='w-14 h-14 bg-slate-50 rounded-[1.2rem] flex-shrink-0 flex items-center justify-center text-2xl overflow-hidden border border-slate-50 shadow-inner'>
-									{vacancy.media?.[0] ? (
-										<img
-											src={vacancy.media[0].fileUrl}
-											className='w-full h-full object-cover'
-											alt=''
-										/>
-									) : (
-										<span className='text-2xl'>💼</span>
-									)}
-								</div>
-
-								{/* Content Info */}
-								<div className='flex-1 min-w-0'>
-									<div className='flex justify-between items-start gap-2'>
-										<div className='flex-1 min-w-0'>
-											<h4 className='font-black text-slate-900 text-[15px] leading-tight truncate'>
-												{vacancy.title}
-											</h4>
-											<p className='text-[10px] font-bold text-slate-400 uppercase mt-0.5 truncate'>
-												{vacancy.companyName ||
-													'Частное лицо'}{' '}
-												• {vacancy.cityName}
-											</p>
-										</div>
-
-										{/* Salary Block - Now strictly right-aligned and clear */}
-										<div className='text-right flex-shrink-0 max-w-[130px]'>
-											<span className='inline-block bg-red-50 text-red-700 text-[11px] font-black px-2 py-1 rounded-lg leading-tight break-words'>
-												{vacancy.salary}
-											</span>
-										</div>
-									</div>
-
-									{/* Bottom Tags */}
-									<div className='flex items-center gap-2 mt-3'>
-										<div className='bg-slate-100 px-2 py-0.5 rounded-md'>
-											<span className='text-[9px] font-black text-slate-500 uppercase tracking-tighter'>
-												{vacancy.subcategoryName ||
-													vacancy.categoryName}
-											</span>
-										</div>
-										{vacancy.distanceKm && (
-											<span className='text-[9px] font-bold text-emerald-600 flex items-center gap-0.5'>
-												📍{' '}
-												{Math.round(
-													vacancy.distanceKm * 10,
-												) / 10}{' '}
-												км
-											</span>
-										)}
-										<span className='text-[9px] font-bold text-slate-300 ml-auto'>
-											{formatDate(vacancy.createdAt)}
-										</span>
-									</div>
-								</div>
-
 								{vacancy.boosted && (
-									<div className='absolute -top-2 left-6 bg-amber-400 text-white text-[7px] font-black px-2 py-0.5 rounded-full uppercase tracking-widest shadow-sm'>
-										Top
+									<div className='absolute top-0 right-0 bg-gradient-to-br from-amber-400 to-orange-500 text-white text-[9px] font-black px-4 py-1.5 rounded-bl-2xl uppercase tracking-tighter shadow-sm z-10'>
+										<Zap
+											size={10}
+											fill='currentColor'
+											className='inline mr-1'
+										/>{' '}
+										Premium
 									</div>
 								)}
+
+								<div className='flex items-center gap-4'>
+									{/* Media Icon */}
+									<div className='w-14 h-14 bg-main rounded-[1.4rem] flex-shrink-0 flex items-center justify-center text-2xl overflow-hidden border border-white/5 shadow-inner'>
+										{vacancy.logo ? (
+											<img
+												src={vacancy.logo}
+												className='w-full h-full object-cover'
+												alt=''
+											/>
+										) : (
+											<span className='text-2xl'>💼</span>
+										)}
+									</div>
+
+									{/* Content Info */}
+									<div className='flex-1 min-w-0'>
+										<h4 className='font-black text-main text-[16px] leading-tight truncate pr-12'>
+											{vacancy.title}
+										</h4>
+										<p className='text-[10px] font-bold text-hint uppercase mt-1 truncate'>
+											{vacancy.companyName ||
+												vacancy.company ||
+												'Частное лицо'}{' '}
+											•{' '}
+											{vacancy.cityName ||
+												vacancy.location}
+										</p>
+									</div>
+								</div>
+
+								<div className='flex items-center justify-between pt-4 border-t border-white/5'>
+									<div className='flex items-center gap-3'>
+										<div className='bg-main px-3 py-1 rounded-full border border-white/5'>
+											<span className='text-[9px] font-black text-hint uppercase tracking-tighter'>
+												{vacancy.tags?.[0] ||
+													'Вакансия'}
+											</span>
+										</div>
+										<span className='text-[10px] font-bold text-red-600 font-black'>
+											{vacancy.salary}
+										</span>
+									</div>
+									<span className='text-[9px] font-bold text-hint opacity-40 uppercase'>
+										{vacancy.date}
+									</span>
+								</div>
 							</div>
 						))}
 					</div>
