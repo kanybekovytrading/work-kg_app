@@ -91,7 +91,7 @@ export const workKgApi = createApi({
 			query: ({ id, tid }) => ({
 				url: `/bot/vacancies/${id}`,
 				method: 'DELETE',
-				params: { telegramId: tid, vacancyId: id },
+				params: { telegramId: tid },
 			}),
 			invalidatesTags: ['ProfileList'],
 		}),
@@ -99,7 +99,7 @@ export const workKgApi = createApi({
 			query: ({ id, tid }) => ({
 				url: `/bot/resumes/${id}`,
 				method: 'DELETE',
-				params: { telegramId: tid, resumeId: id },
+				params: { telegramId: tid },
 			}),
 			invalidatesTags: ['ProfileList'],
 		}),
