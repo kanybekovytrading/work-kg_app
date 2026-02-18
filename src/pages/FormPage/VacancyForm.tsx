@@ -30,7 +30,8 @@ interface Props {
 
 // Оригинальный стиль инпутов с переменными темы
 const inputClass =
-	'w-full bg-main border border-white/10 h-14 px-6 rounded-2xl text-sm font-bold focus:outline-none ring-4 ring-transparent focus:ring-red-500/5 focus:border-red-700/30 transition-all placeholder:text-hint/30 text-main shadow-sm'
+	'w-full bg-secondary border border-white/5 h-14 px-6 rounded-2xl text-sm font-bold focus:outline-none ring-4 ring-transparent focus:ring-red-500/10 transition-all placeholder:text-hint/40 text-main shadow-sm'
+
 export const VacancyForm: React.FC<Props> = ({
 	initialData,
 	onSubmit,
@@ -104,6 +105,7 @@ export const VacancyForm: React.FC<Props> = ({
 
 	return (
 		<form onSubmit={handleSubmit(onSubmit)} className='space-y-6'>
+			{/* Заголовок */}
 			<FormField label='Название вакансии' error={errors.title?.message}>
 				<Controller
 					name='title'
@@ -118,6 +120,7 @@ export const VacancyForm: React.FC<Props> = ({
 				/>
 			</FormField>
 
+			{/* Возраст */}
 			<div className='grid grid-cols-2 gap-4'>
 				<FormField label='Мин. возраст' error={errors.minAge?.message}>
 					<Controller
@@ -161,6 +164,7 @@ export const VacancyForm: React.FC<Props> = ({
 				</FormField>
 			</div>
 
+			{/* Пол */}
 			<Controller
 				name='preferredGender'
 				control={control}
@@ -179,8 +183,8 @@ export const VacancyForm: React.FC<Props> = ({
 				)}
 			/>
 
-			{/* Контрастный блок выбора сферы */}
-			<div className='space-y-6 p-6 bg-secondary/50 rounded-[2.5rem] border border-white/5 shadow-sm'>
+			{/* Блок селекторов (Bento) */}
+			<div className='space-y-6 p-6 bg-secondary/40 rounded-[2.5rem] border border-white/5 shadow-inner'>
 				<Controller
 					name='cityId'
 					control={control}
@@ -211,6 +215,7 @@ export const VacancyForm: React.FC<Props> = ({
 						/>
 					)}
 				/>
+
 				{selectedSphere > 0 && (
 					<Controller
 						name='categoryId'
@@ -235,6 +240,7 @@ export const VacancyForm: React.FC<Props> = ({
 						)}
 					/>
 				)}
+
 				{selectedCategory > 0 && subcategories.length > 0 && (
 					<Controller
 						name='subcategoryId'
@@ -260,8 +266,9 @@ export const VacancyForm: React.FC<Props> = ({
 				)}
 			</div>
 
+			{/* Медиа */}
 			<div className='space-y-4'>
-				<label className='block text-sm font-black text-main uppercase tracking-widest ml-1'>
+				<label className='block text-[10px] font-black text-hint uppercase tracking-widest ml-1'>
 					Фото и Видео
 				</label>
 				<div className='flex gap-2'>
@@ -304,6 +311,7 @@ export const VacancyForm: React.FC<Props> = ({
 				</div>
 			</div>
 
+			{/* Зарплата и Опыт */}
 			<div className='grid grid-cols-2 gap-4'>
 				<FormField label='Зарплата' error={errors.salary?.message}>
 					<Controller
@@ -336,7 +344,7 @@ export const VacancyForm: React.FC<Props> = ({
 											: Number(e.target.value),
 									)
 								}
-								placeholder='Лет опыта'
+								placeholder='Опыт'
 								className={inputClass}
 							/>
 						)}
@@ -344,6 +352,7 @@ export const VacancyForm: React.FC<Props> = ({
 				</FormField>
 			</div>
 
+			{/* График и Компания */}
 			<div className='grid grid-cols-2 gap-4'>
 				<FormField label='График' error={errors.schedule?.message}>
 					<Controller
@@ -365,7 +374,7 @@ export const VacancyForm: React.FC<Props> = ({
 						render={({ field }) => (
 							<input
 								{...field}
-								placeholder='Название фирмы'
+								placeholder='Название'
 								className={inputClass}
 							/>
 						)}
@@ -373,6 +382,7 @@ export const VacancyForm: React.FC<Props> = ({
 				</FormField>
 			</div>
 
+			{/* Адрес */}
 			<Controller
 				name='address'
 				control={control}
@@ -388,6 +398,7 @@ export const VacancyForm: React.FC<Props> = ({
 				)}
 			/>
 
+			{/* Телефон */}
 			<FormField label='Телефон' error={errors.phone?.message}>
 				<Controller
 					name='phone'
@@ -404,6 +415,7 @@ export const VacancyForm: React.FC<Props> = ({
 				/>
 			</FormField>
 
+			{/* Описание */}
 			<FormField label='Описание' error={errors.description?.message}>
 				<Controller
 					name='description'
@@ -411,13 +423,14 @@ export const VacancyForm: React.FC<Props> = ({
 					render={({ field }) => (
 						<textarea
 							{...field}
-							className='w-full bg-main border border-white/5 min-h-[160px] p-6 rounded-3xl text-sm font-medium focus:outline-none resize-none text-main'
-							placeholder='Опишите обязанности...'
+							className='w-full bg-secondary border border-white/5 min-h-[160px] p-6 rounded-3xl text-sm font-medium focus:outline-none resize-none text-main placeholder:text-hint/40'
+							placeholder='Опишите вакансию подробно...'
 						/>
 					)}
 				/>
 			</FormField>
 
+			{/* Кнопка отправки */}
 			<button
 				type='submit'
 				disabled={loading}
