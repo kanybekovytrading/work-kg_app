@@ -11,7 +11,7 @@ import { ElegantSelect } from '../../../App'
 
 // Оригинальный стиль инпутов с поддержкой темы
 const inputClass =
-	'w-full bg-main border border-white/10 h-14 px-6 rounded-2xl text-sm font-bold focus:outline-none ring-4 ring-transparent focus:ring-red-500/5 focus:border-red-700/30 transition-all placeholder:text-hint/30 text-main shadow-sm'
+	'w-full bg-secondary border border-white/5 h-14 px-6 rounded-2xl text-sm font-bold focus:outline-none ring-4 ring-transparent focus:ring-red-500/10 transition-all placeholder:text-hint/40 text-main shadow-sm'
 
 interface Props {
 	initialData?: any
@@ -83,6 +83,7 @@ export const ResumeForm: React.FC<Props> = ({
 
 	return (
 		<form onSubmit={handleSubmit(onSubmit)} className='space-y-6'>
+			{/* Ваше Имя */}
 			<FormField label='Ваше Имя' error={errors.name?.message}>
 				<Controller
 					name='name'
@@ -97,6 +98,7 @@ export const ResumeForm: React.FC<Props> = ({
 				/>
 			</FormField>
 
+			{/* Возраст и Опыт */}
 			<div className='grid grid-cols-2 gap-4'>
 				<FormField label='Возраст' error={errors.age?.message}>
 					<Controller
@@ -145,6 +147,7 @@ export const ResumeForm: React.FC<Props> = ({
 				</FormField>
 			</div>
 
+			{/* Пол */}
 			<Controller
 				name='gender'
 				control={control}
@@ -162,8 +165,8 @@ export const ResumeForm: React.FC<Props> = ({
 				)}
 			/>
 
-			{/* Bento-блок выбора сферы (оставляем bg-secondary для структуры, но инпуты внутри будут белыми) */}
-			<div className='space-y-6 p-6 bg-secondary/50 rounded-[2.5rem] border border-white/5'>
+			{/* Bento-блок выбора сферы (bg-secondary/40 для мягкого выделения) */}
+			<div className='space-y-6 p-6 bg-secondary/40 rounded-[2.5rem] border border-white/5 shadow-inner'>
 				<Controller
 					name='cityId'
 					control={control}
@@ -243,8 +246,9 @@ export const ResumeForm: React.FC<Props> = ({
 				)}
 			</div>
 
+			{/* Блок Медиа */}
 			<div className='space-y-4'>
-				<label className='block text-xs font-black text-hint uppercase tracking-widest ml-1'>
+				<label className='block text-[10px] font-black text-hint uppercase tracking-widest ml-1'>
 					Фото и Видео
 				</label>
 				<div className='flex gap-2'>
@@ -266,7 +270,7 @@ export const ResumeForm: React.FC<Props> = ({
 							+ Фото ({selectedPhotos.length})
 						</span>
 					</label>
-					<label className='flex-1 h-14 bg-main text-main rounded-2xl flex items-center justify-center cursor-pointer border border-white/10 active:scale-95 transition-all'>
+					<label className='flex-1 h-14 bg-secondary text-main rounded-2xl flex items-center justify-center cursor-pointer border border-white/10 active:scale-95 transition-all'>
 						<input
 							type='file'
 							multiple
@@ -285,8 +289,38 @@ export const ResumeForm: React.FC<Props> = ({
 						</span>
 					</label>
 				</div>
+
+				{/* Превью */}
+				<div className='flex gap-3 overflow-x-auto no-scrollbar py-2'>
+					{selectedPhotos.map((file, i) => (
+						<div
+							key={i}
+							className='relative shrink-0 w-20 h-20 rounded-2xl overflow-hidden border border-white/10'
+						>
+							<img
+								src={URL.createObjectURL(file)}
+								className='w-full h-full object-cover'
+								alt='preview'
+							/>
+							<button
+								type='button'
+								onClick={() =>
+									setSelectedPhotos(
+										selectedPhotos.filter(
+											(_, idx) => idx !== i,
+										),
+									)
+								}
+								className='absolute top-1 right-1 w-5 h-5 bg-red-600 text-white rounded-full text-[10px] flex items-center justify-center'
+							>
+								×
+							</button>
+						</div>
+					))}
+				</div>
 			</div>
 
+			{/* О себе */}
 			<FormField
 				label='О себе / Навыки'
 				error={errors.description?.message}
@@ -297,13 +331,14 @@ export const ResumeForm: React.FC<Props> = ({
 					render={({ field }) => (
 						<textarea
 							{...field}
-							className='w-full bg-main border border-white/10 min-h-[160px] p-6 rounded-3xl text-sm font-medium focus:outline-none resize-none text-main shadow-sm'
-							placeholder='Расскажите о себе...'
+							className='w-full bg-secondary border border-white/5 min-h-[160px] p-6 rounded-3xl text-sm font-medium focus:outline-none resize-none text-main placeholder:text-hint/40'
+							placeholder='Расскажите о своих сильных сторонах...'
 						/>
 					)}
 				/>
 			</FormField>
 
+			{/* Кнопка Опубликовать */}
 			<button
 				type='submit'
 				disabled={loading}

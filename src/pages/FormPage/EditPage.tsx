@@ -132,7 +132,7 @@ const EditPage: React.FC<{ telegramId: number }> = ({ telegramId }) => {
 	}
 
 	return (
-		<div className='bg-white min-h-screen pb-20 animate-in fade-in duration-300'>
+		<div className='bg-main min-h-screen pb-20 animate-in fade-in duration-300'>
 			<header
 				className='p-6 pt-12 flex items-center gap-4 sticky top-0 bg-main/90 backdrop-blur-md z-40 border-b border-white/5'
 				style={{

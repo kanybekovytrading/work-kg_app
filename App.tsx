@@ -793,6 +793,7 @@ const HomePage: React.FC<{ user: User | null }> = ({ user }) => {
 		</div>
 	)
 }
+
 const SearchPage: React.FC<{ telegramId: number }> = ({ telegramId }) => {
 	const navigate = useNavigate()
 	const location = useLocation()
@@ -931,6 +932,33 @@ const SearchPage: React.FC<{ telegramId: number }> = ({ telegramId }) => {
 							}}
 						/>
 					</div>
+					{/* ВОССТАНОВЛЕННЫЙ БЛОК: Категории и Подкатегории */}
+					{sphereId && (
+						<div className='grid grid-cols-2 gap-3 animate-in fade-in slide-in-from-top-2'>
+							<ElegantSelect
+								placeholder='Категория'
+								value={categoryId}
+								options={categories}
+								onChange={(id) => {
+									setCategoryId(id)
+									setSubcategoryId(null)
+								}}
+							/>
+							<ElegantSelect
+								disabled={
+									!categoryId || subcategories.length === 0
+								}
+								placeholder={
+									subcategories.length === 0
+										? 'Нет подкат.'
+										: 'Подкатегория'
+								}
+								value={subcategoryId}
+								options={subcategories}
+								onChange={setSubcategoryId}
+							/>
+						</div>
+					)}
 				</div>
 			</header>
 
@@ -965,7 +993,7 @@ const SearchPage: React.FC<{ telegramId: number }> = ({ telegramId }) => {
 		</div>
 	)
 }
-// Глобальный сет для отслеживания просмотров (как в твоем оригинале)
+
 const viewedIds = new Set<string>()
 
 const SearchResultItem = ({ item, type, onClick }: any) => {
@@ -1698,20 +1726,20 @@ export const DetailRow = ({
 	value: string
 }) => (
 	<div className='flex items-center gap-4 group'>
-		<div className='w-10 h-10 rounded-xl bg-white border border-slate-100 flex items-center justify-center text-red-800 shadow-sm transition-transform group-hover:scale-105'>
+		{/* Фон иконки: bg-main (белый/черный), рамка прозрачная */}
+		<div className='w-10 h-10 rounded-xl bg-main border border-white/5 flex items-center justify-center text-red-700 shadow-sm transition-transform group-hover:scale-105'>
 			{icon}
 		</div>
 		<div className='text-left'>
-			<p className='text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1'>
+			{/* Метка: text-hint (серый) */}
+			<p className='text-[9px] font-black text-hint uppercase tracking-widest leading-none mb-1'>
 				{label}
 			</p>
-			<p className='text-xs font-bold text-slate-900 leading-none'>
-				{value}
-			</p>
+			{/* Значение: text-main (черный в светлой, белый в темной) */}
+			<p className='text-xs font-bold text-main leading-none'>{value}</p>
 		</div>
 	</div>
 )
-
 // Small Icons
 const ClockIconSmall = () => (
 	<svg
