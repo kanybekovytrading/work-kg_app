@@ -134,18 +134,18 @@ const EditPage: React.FC<{ telegramId: number }> = ({ telegramId }) => {
 	return (
 		<div className='bg-white min-h-screen pb-20 animate-in fade-in duration-300'>
 			<header
-				className='p-6 pt-12 flex items-center gap-4 sticky top-0 bg-white/90 backdrop-blur-md z-40 border-b border-slate-100'
+				className='p-6 pt-12 flex items-center gap-4 sticky top-0 bg-main/90 backdrop-blur-md z-40 border-b border-white/5'
 				style={{
 					paddingTop: 'calc(1.5rem + env(safe-area-inset-top))',
 				}}
 			>
 				<button
 					onClick={() => navigate(-1)}
-					className='w-10 h-10 bg-slate-50 rounded-xl flex items-center justify-center text-slate-600 active:scale-95 transition-transform'
+					className='w-10 h-10 bg-secondary rounded-xl flex items-center justify-center text-main active:scale-95 transition-transform'
 				>
 					←
 				</button>
-				<h2 className='text-2xl font-black text-slate-900'>
+				<h2 className='text-2xl font-black text-main'>
 					Редактирование
 				</h2>
 			</header>

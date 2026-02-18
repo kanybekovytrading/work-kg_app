@@ -1,3 +1,5 @@
+import React, { useContext, useMemo, useState } from 'react'
+import { useLocation, useNavigate } from 'react-router-dom'
 import {
 	useGetResumeDetailQuery,
 	useGetVacancyDetailQuery,
@@ -5,11 +7,8 @@ import {
 	useGetVacancyStatsQuery,
 	useTrackContactClickMutation,
 } from '../../src/store/store'
-
 import { DetailRow, LocationContext, MediaViewer, useToast } from '../../App'
-import { Media, Vacancy, Resume } from '../../types' // Импортируем типы
-import { useContext, useMemo, useState } from 'react'
-import { useLocation, useNavigate } from 'react-router-dom'
+import { Media, Vacancy, Resume } from '../../types'
 
 const tg = (window as any).Telegram?.WebApp
 
@@ -24,7 +23,7 @@ export const ProfileDetail: React.FC<{ telegramId: number }> = ({
 
 	const [selectedMedia, setSelectedMedia] = useState<Media | null>(null)
 
-	// --- RTK QUERY: ПОЛУЧЕНИЕ ДЕТАЛЕЙ ---
+	// --- RTK QUERY ---
 	const { data: newData, isLoading: itemLoading } =
 		type === 'worker'
 			? useGetResumeDetailQuery(
@@ -37,33 +36,26 @@ export const ProfileDetail: React.FC<{ telegramId: number }> = ({
 				)
 
 	let item: any = newData
-	// --- RTK QUERY: ПОЛУЧЕНИЕ СТАТИСТИКИ ---
 	const { data: stats } =
 		type === 'worker'
 			? useGetResumeStatsQuery(data?.id, { skip: !data?.id })
 			: useGetVacancyStatsQuery(data?.id, { skip: !data?.id })
 
-	// --- RTK QUERY: ТРЕКИНГ КЛИКА ---
 	const [trackContactClick] = useTrackContactClickMutation()
 
-	// --- ХЕЛПЕРЫ ДЛЯ ТИПИЗАЦИИ (Чтобы TS не ругался) ---
 	const isJob = type === 'job' || type === 'vac'
 	const vacancy = isJob ? (item as Vacancy) : null
 	const resume = !isJob ? (item as Resume) : null
 
 	const handleContactClick = (platform: 'whatsapp' | 'telegram') => {
 		if (!item) return
-
 		trackContactClick({
 			type: isJob ? 'job' : 'worker',
 			id: item.id,
 			tid: telegramId,
 		})
-
 		showToast(`Переходим в ${platform}...`, 'success')
 
-		// У резюме в твоих типах нет поля phone (оно обычно в вакансиях),
-		// но если оно приходит с бэкенда, используем (item as any).phone
 		const phoneRaw = (item as any).phone || ''
 		const phone = phoneRaw.replace(/\D/g, '')
 
@@ -85,11 +77,8 @@ export const ProfileDetail: React.FC<{ telegramId: number }> = ({
 		const fullAddress = `${item.cityName}, ${item.address}`.trim()
 		const encodedAddress = encodeURIComponent(fullAddress)
 		let url = `https://2gis.kg/search/${encodedAddress}`
-
-		if (userLocation && userLocation.lat && userLocation.lng) {
+		if (userLocation?.lat && userLocation?.lng)
 			url += `?m=${userLocation.lng},${userLocation.lat}%2F15`
-		}
-
 		if (tg) tg.openLink(url)
 		else window.open(url, '_blank')
 	}
@@ -115,8 +104,8 @@ export const ProfileDetail: React.FC<{ telegramId: number }> = ({
 
 	if (itemLoading || !item)
 		return (
-			<div className='min-h-screen flex items-center justify-center bg-white'>
-				<div className='w-10 h-10 border-[3px] border-slate-900 border-t-transparent rounded-full animate-spin' />
+			<div className='min-h-screen flex items-center justify-center bg-main'>
+				<div className='w-10 h-10 border-[3px] border-red-700 border-t-transparent rounded-full animate-spin' />
 			</div>
 		)
 
@@ -126,16 +115,16 @@ export const ProfileDetail: React.FC<{ telegramId: number }> = ({
 				media={selectedMedia}
 				onClose={() => setSelectedMedia(null)}
 			/>
-			<div className='pb-32 animate-in fade-in duration-500 bg-white min-h-screen text-slate-900'>
+			<div className='pb-32 animate-in fade-in duration-500 bg-main min-h-screen text-main'>
 				<header
-					className='px-6 py-4 flex items-center justify-between sticky top-0 bg-white/95 backdrop-blur-md z-50 border-b border-slate-100'
+					className='px-6 py-4 flex items-center justify-between sticky top-0 bg-main/95 backdrop-blur-md z-50 border-b border-white/5'
 					style={{
 						paddingTop: 'calc(1.5rem + env(safe-area-inset-top))',
 					}}
 				>
 					<button
 						onClick={() => navigate(-1)}
-						className='w-10 h-10 flex items-center justify-center rounded-full bg-slate-50 text-slate-600 active:scale-90 transition-all'
+						className='w-10 h-10 flex items-center justify-center rounded-full bg-secondary text-main active:scale-90 transition-all'
 					>
 						<svg
 							className='w-5 h-5'
@@ -157,36 +146,24 @@ export const ProfileDetail: React.FC<{ telegramId: number }> = ({
 					<section className='space-y-4'>
 						<div className='space-y-2'>
 							<div className='flex items-center gap-2'>
-								<span className='text-[10px] font-black text-slate-400 uppercase tracking-widest'>
+								<span className='text-[10px] font-black text-hint uppercase tracking-widest'>
 									{item.cityName} • {item.categoryName}
 								</span>
 								{item.isActive !== false && (
 									<span className='w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse'></span>
 								)}
 							</div>
-							<h1 className='text-3xl font-black text-slate-900 leading-tight'>
+							<h1 className='text-3xl font-black text-main leading-tight'>
 								{isJob ? vacancy?.title : resume?.name}
 							</h1>
 							{isJob && vacancy?.companyName && (
 								<p className='text-sm font-bold text-red-800 flex items-center gap-2'>
-									<svg
-										className='w-4 h-4'
-										fill='none'
-										stroke='currentColor'
-										viewBox='0 0 24 24'
-									>
-										<path
-											strokeLinecap='round'
-											strokeLinejoin='round'
-											strokeWidth='2.5'
-											d='M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4'
-										/>
-									</svg>
+									<CompanyIcon />
 									{vacancy.companyName}
 								</p>
 							)}
 						</div>
-						<div className='inline-flex items-center px-6 py-3 bg-slate-50 text-slate-900 text-xl font-black rounded-2xl border border-slate-100 shadow-sm'>
+						<div className='inline-flex items-center px-6 py-3 bg-secondary text-main text-xl font-black rounded-2xl border border-white/5 shadow-sm'>
 							{isJob
 								? vacancy?.salary || 'ЗП не указана'
 								: `${resume?.experience}г. опыта`}
@@ -195,7 +172,7 @@ export const ProfileDetail: React.FC<{ telegramId: number }> = ({
 
 					{item.media && item.media.length > 0 && (
 						<section className='space-y-4'>
-							<h4 className='text-[10px] font-black text-slate-400 uppercase tracking-widest px-1'>
+							<h4 className='text-[10px] font-black text-hint uppercase tracking-widest px-1'>
 								Галерея работ
 							</h4>
 							<div className='flex gap-4 overflow-x-auto no-scrollbar snap-x snap-mandatory pb-4 px-1'>
@@ -207,7 +184,7 @@ export const ProfileDetail: React.FC<{ telegramId: number }> = ({
 										<div
 											key={m.id}
 											onClick={() => setSelectedMedia(m)}
-											className='flex-shrink-0 w-[85%] sm:w-80 h-56 bg-black rounded-[2.5rem] overflow-hidden shadow-xl border border-slate-100 snap-center relative group cursor-pointer'
+											className='flex-shrink-0 w-[85%] sm:w-80 h-56 bg-black rounded-[2.5rem] overflow-hidden shadow-xl border border-white/5 snap-center relative group cursor-pointer'
 										>
 											{m.mediaType === 'VIDEO' ? (
 												<>
@@ -234,9 +211,10 @@ export const ProfileDetail: React.FC<{ telegramId: number }> = ({
 						</section>
 					)}
 
+					{/* БЛОК РЕКОМЕНДАЦИИ (BENTO) */}
 					<div
 						onClick={navigateToRelatedSearch}
-						className='mx-1 p-5 bg-slate-900 rounded-[2rem] flex items-center justify-between group active:scale-[0.98] transition-all cursor-pointer overflow-hidden relative'
+						className='mx-1 p-5 bg-[#111111] rounded-[2rem] flex items-center justify-between group active:scale-[0.98] transition-all cursor-pointer overflow-hidden relative'
 					>
 						<div className='absolute -right-4 -top-4 w-24 h-24 bg-red-800/20 blur-2xl rounded-full'></div>
 						<div className='flex items-center gap-4 relative z-10'>
@@ -271,8 +249,8 @@ export const ProfileDetail: React.FC<{ telegramId: number }> = ({
 						</div>
 					</div>
 
-					<section className='bg-slate-50 p-6 rounded-[2.5rem] border border-slate-100 space-y-6'>
-						<h4 className='text-[10px] font-black text-slate-400 uppercase tracking-widest'>
+					<section className='bg-secondary p-6 rounded-[2.5rem] border border-white/5 space-y-6'>
+						<h4 className='text-[10px] font-black text-hint uppercase tracking-widest'>
 							Ключевые детали
 						</h4>
 						<div className='grid grid-cols-1 gap-6'>
@@ -288,6 +266,7 @@ export const ProfileDetail: React.FC<{ telegramId: number }> = ({
 								label='Опыт'
 								value={`${isJob ? vacancy?.experienceInYear : resume?.experience} лет`}
 							/>
+
 							{isJob && vacancy?.address && (
 								<div
 									onClick={open2GISRoute}
@@ -299,19 +278,7 @@ export const ProfileDetail: React.FC<{ telegramId: number }> = ({
 										value={vacancy.address}
 									/>
 									<div className='pl-[56px] text-[9px] font-bold text-emerald-600 uppercase mt-1 flex items-center gap-1'>
-										<svg
-											className='w-3 h-3'
-											fill='none'
-											viewBox='0 0 24 24'
-											stroke='currentColor'
-										>
-											<path
-												strokeLinecap='round'
-												strokeLinejoin='round'
-												strokeWidth='2.5'
-												d='M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7'
-											/>
-										</svg>
+										<RouteIcon />
 										<span>Открыть маршрут в 2GIS</span>
 									</div>
 								</div>
@@ -321,7 +288,7 @@ export const ProfileDetail: React.FC<{ telegramId: number }> = ({
 								label='Условия'
 								value={
 									isJob
-										? `Возраст: ${vacancy?.minAge}-${vacancy?.maxAge} • Пол: ${vacancy?.preferredGender === 'MALE' ? 'Мужчина' : 'Женщина'}`
+										? `Возраст: ${vacancy?.minAge}-${vacancy?.maxAge} • Пол: ${vacancy?.preferredGender === 'MALE' ? 'Мужчина' : vacancy?.preferredGender === 'FEMALE' ? 'Женщина' : 'Любой'}`
 										: `Возраст: ${resume?.age} • Пол: ${resume?.gender === 'MALE' ? 'Мужчина' : 'Женщина'}`
 								}
 							/>
@@ -329,15 +296,15 @@ export const ProfileDetail: React.FC<{ telegramId: number }> = ({
 					</section>
 
 					<section className='space-y-4'>
-						<h4 className='text-[10px] font-black text-slate-400 uppercase tracking-widest px-1'>
+						<h4 className='text-[10px] font-black text-hint uppercase tracking-widest px-1'>
 							Подробное описание
 						</h4>
-						<div className='text-slate-700 leading-relaxed whitespace-pre-wrap font-medium text-sm px-1'>
+						<div className='text-main/80 leading-relaxed whitespace-pre-wrap font-medium text-sm px-1'>
 							{item.description}
 						</div>
 					</section>
 
-					<section className='flex items-center justify-between px-2 pt-4 border-t border-slate-100 text-[10px] font-black text-slate-400 uppercase tracking-widest'>
+					<section className='flex items-center justify-between px-2 pt-4 border-t border-white/5 text-[10px] font-black text-hint uppercase tracking-widest'>
 						<div className='flex items-center gap-4'>
 							<span className='flex items-center gap-1.5'>
 								<ViewIcon /> {stats?.viewsCount || 0}
@@ -354,8 +321,7 @@ export const ProfileDetail: React.FC<{ telegramId: number }> = ({
 					</section>
 				</div>
 
-				{/* Footer Buttons remains same... */}
-				<div className='fixed bottom-0 left-0 right-0 p-6 bg-white/90 backdrop-blur-2xl border-t border-slate-100 z-50 shadow-[0_-10px_40px_rgba(0,0,0,0.05)]'>
+				<div className='fixed bottom-0 left-0 right-0 p-6 bg-main/90 backdrop-blur-2xl border-t border-white/5 z-50 shadow-[0_-10px_40px_rgba(0,0,0,0.05)]'>
 					<div className='max-w-xl mx-auto'>
 						{isLocked ? (
 							<div className='flex flex-col gap-4 animate-in slide-in-from-bottom duration-500'>
@@ -363,13 +329,13 @@ export const ProfileDetail: React.FC<{ telegramId: number }> = ({
 									<p className='text-[10px] font-black text-red-600 uppercase tracking-[0.2em]'>
 										Контакты ограничены 🔒
 									</p>
-									<p className='text-[11px] font-bold text-slate-400'>
+									<p className='text-[11px] font-bold text-hint'>
 										Оформите PRO подписку для доступа
 									</p>
 								</div>
 								<button
 									onClick={() => navigate('/subscription')}
-									className='h-16 bg-slate-900 text-white rounded-2xl font-black uppercase tracking-widest shadow-xl flex items-center justify-center gap-3 border-2 border-slate-900'
+									className='h-16 bg-main text-main rounded-2xl font-black uppercase tracking-widest shadow-xl flex items-center justify-center gap-3 border-2 border-red-700 active:scale-95 transition-all'
 								>
 									<span>💎</span> Купить PRO Доступ
 								</button>
@@ -380,7 +346,7 @@ export const ProfileDetail: React.FC<{ telegramId: number }> = ({
 									onClick={() =>
 										handleContactClick('whatsapp')
 									}
-									className='h-16 bg-[#075e54] text-white rounded-2xl font-black uppercase tracking-widest shadow-xl active:scale-95 transition-all flex items-center justify-center gap-3'
+									className='h-16 bg-[#075e54] text-white rounded-2xl font-black uppercase tracking-widest shadow-xl active:scale-95 transition-all'
 								>
 									WhatsApp
 								</button>
@@ -388,7 +354,7 @@ export const ProfileDetail: React.FC<{ telegramId: number }> = ({
 									onClick={() =>
 										handleContactClick('telegram')
 									}
-									className='h-16 bg-slate-900 text-white rounded-2xl font-black uppercase tracking-widest shadow-xl active:scale-95 transition-all flex items-center justify-center gap-3'
+									className='h-16 bg-red-700 text-white rounded-2xl font-black uppercase tracking-widest shadow-xl active:scale-95 transition-all'
 								>
 									Telegram
 								</button>
@@ -401,7 +367,37 @@ export const ProfileDetail: React.FC<{ telegramId: number }> = ({
 	)
 }
 
-// ... SVG Components remain the same
+// Вспомогательные иконки (сохранил твой стиль)
+const CompanyIcon = () => (
+	<svg
+		className='w-4 h-4'
+		fill='none'
+		stroke='currentColor'
+		viewBox='0 0 24 24'
+	>
+		<path
+			strokeLinecap='round'
+			strokeLinejoin='round'
+			strokeWidth='2.5'
+			d='M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4'
+		/>
+	</svg>
+)
+const RouteIcon = () => (
+	<svg
+		className='w-3 h-3'
+		fill='none'
+		viewBox='0 0 24 24'
+		stroke='currentColor'
+	>
+		<path
+			strokeLinecap='round'
+			strokeLinejoin='round'
+			strokeWidth='2.5'
+			d='M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7'
+		/>
+	</svg>
+)
 const ClockIconSmall = () => (
 	<svg
 		className='w-4 h-4'
