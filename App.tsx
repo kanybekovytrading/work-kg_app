@@ -15,6 +15,27 @@ import {
 	Navigate,
 	useSearchParams,
 } from 'react-router-dom'
+import {
+	Home,
+	Search,
+	Plus,
+	Star,
+	Bell,
+	ChevronRight,
+	Zap,
+	Gamepad2,
+	Lock,
+	Eye,
+	MousePointer2,
+	Trophy,
+	Users,
+	Wallet,
+	Settings,
+	ArrowRight,
+	Filter,
+	CheckCircle2,
+	Briefcase,
+} from 'lucide-react'
 import { BANK_SERVICES, formatPhoneKG, formatDate } from './constants'
 import { User, Media } from './types'
 import { GamesPage } from './src/pages/games/ui/GamesPage'
@@ -76,6 +97,11 @@ const ToastProvider: React.FC<{ children: React.ReactNode }> = ({
 		(message: string, type: 'success' | 'error' | 'info' = 'success') => {
 			setToast({ message, type })
 			setTimeout(() => setToast(null), 3000)
+			if (tg?.HapticFeedback) {
+				tg.HapticFeedback.notificationOccurred(
+					type === 'error' ? 'error' : 'success',
+				)
+			}
 		},
 		[],
 	)
@@ -84,18 +110,23 @@ const ToastProvider: React.FC<{ children: React.ReactNode }> = ({
 		<ToastContext.Provider value={{ showToast }}>
 			{children}
 			{toast && (
-				<div className='fixed top-6 left-1/2 -translate-x-1/2 z-[200] w-[90%] max-w-sm'>
+				<div className='fixed top-14 left-1/2 -translate-x-1/2 z-[200] w-[85%] max-w-sm animate-in fade-in slide-in-from-top-4 duration-300'>
 					<div
-						className={`p-4 rounded-2xl shadow-2xl flex items-center justify-center animate-in fade-in slide-in-from-top-4 duration-300 ${toast.type === 'success' ? 'brand-gradient text-white' : toast.type === 'error' ? 'bg-rose-600 text-white' : 'bg-slate-800 text-white'}`}
+						className={`px-6 py-4 rounded-[2rem] shadow-2xl flex items-center justify-center font-bold text-sm backdrop-blur-md ${
+							toast.type === 'success'
+								? 'bg-emerald-600/90 text-white'
+								: toast.type === 'error'
+									? 'bg-rose-600/90 text-white'
+									: 'bg-slate-800/90 text-white'
+						}`}
 					>
-						<div className='text-sm font-bold'>{toast.message}</div>
+						{toast.message}
 					</div>
 				</div>
 			)}
 		</ToastContext.Provider>
 	)
 }
-
 // --- GEOLOCATION & MAP COMPONENTS ---
 
 export const LocationContext = React.createContext<{
@@ -583,72 +614,95 @@ const HomePage: React.FC<{ user: User | null }> = ({ user }) => {
 		{ id: 7, name: 'Общепит', icon: '☕️' },
 	]
 
+	const handleAction = (
+		path: string,
+		impact: 'light' | 'medium' | 'heavy' = 'light',
+		state?: any,
+	) => {
+		if (tg?.HapticFeedback) tg.HapticFeedback.impactOccurred(impact)
+		navigate(path, { state })
+	}
+
 	return (
-		<div className='pb-40 animate-in fade-in duration-500 bg-white min-h-screen main-content-offset'>
-			<header className='px-6 pb-4 pt-4 flex items-center justify-between sticky top-0 bg-white/90 backdrop-blur-md z-40 border-b border-slate-50'>
+		<div className='pb-40 animate-in fade-in duration-500 bg-main min-h-screen safe-top'>
+			<header className='px-6 pb-4 pt-4 flex items-center justify-between sticky top-0 bg-main/80 backdrop-blur-xl z-40 border-b border-white/5'>
 				<div className='flex items-center gap-2 font-black text-2xl tracking-tighter'>
-					<span className='text-slate-900'>WORK</span>
+					<span className='text-main'>WORK</span>
 					<span className='text-red-700'>KG</span>
 				</div>
+				<button
+					onClick={() => tg?.HapticFeedback?.impactOccurred('light')}
+					className='p-2.5 bg-secondary rounded-2xl active:scale-90 transition-all border border-white/5'
+				>
+					<Bell size={20} className='text-main' />
+				</button>
 			</header>
 
 			{/* Bento Action Cards */}
 			<div className='px-6 mt-6 space-y-4 text-left'>
 				<div
-					onClick={() =>
-						navigate('/create', { state: { type: 'res' } })
-					}
-					className='brand-gradient p-6 rounded-[2.2rem] text-white shadow-xl shadow-red-100 active:scale-[0.98] transition-all relative overflow-hidden cursor-pointer'
+					onClick={() => handleAction('/create', 'medium')}
+					className='brand-gradient p-7 rounded-[2.5rem] text-white shadow-2xl shadow-red-900/10 active:scale-[0.98] transition-all relative overflow-hidden cursor-pointer'
 				>
-					<div className='absolute -right-4 -bottom-4 w-32 h-32 bg-white/10 rounded-full blur-3xl'></div>
-					<h3 className='text-2xl font-black uppercase tracking-tight'>
-						Начни поиск 🚀
-					</h3>
-					<p className='text-[11px] text-white/80 font-bold uppercase mt-2 tracking-widest'>
-						Создай резюме за 60 секунд
-					</p>
+					<div className='relative z-10'>
+						<h3 className='text-2xl font-black uppercase tracking-tight'>
+							Начни поиск 🚀
+						</h3>
+						<p className='text-[11px] text-white/80 font-bold uppercase mt-2 tracking-widest flex items-center gap-2'>
+							Создай резюме за 60 секунд <ArrowRight size={12} />
+						</p>
+					</div>
+					<Zap className='absolute -right-6 -bottom-6 w-36 h-36 text-white/10 rotate-12' />
 				</div>
 
 				<div className='grid grid-cols-2 gap-4'>
 					<div
-						onClick={() => navigate('/games')}
-						className='bg-indigo-600 p-5 rounded-[2rem] text-white shadow-lg h-32 flex flex-col justify-end relative overflow-hidden cursor-pointer active:scale-95 transition-all'
+						onClick={() => handleAction('/games')}
+						className='bg-indigo-600 p-6 rounded-[2.2rem] text-white shadow-lg h-36 flex flex-col justify-between relative overflow-hidden cursor-pointer active:scale-95 transition-all'
 					>
-						<h4 className='font-black text-sm uppercase'>
-							PLAY ZONE
-						</h4>
-						<p className='text-[9px] text-indigo-200 font-bold uppercase mt-1'>
-							Отдохни
-						</p>
+						<div className='w-10 h-10 bg-white/20 rounded-2xl flex items-center justify-center backdrop-blur-md'>
+							<Gamepad2 size={20} />
+						</div>
+						<div>
+							<h4 className='font-black text-sm uppercase'>
+								PLAY ZONE
+							</h4>
+							<p className='text-[9px] text-indigo-200 font-bold uppercase mt-1'>
+								Отдохни от работы
+							</p>
+						</div>
 					</div>
 					<div
-						onClick={() => navigate('/subscription')}
-						className='bg-slate-900 p-5 rounded-[2rem] text-white shadow-lg h-32 flex flex-col justify-end relative overflow-hidden cursor-pointer active:scale-95 transition-all'
+						onClick={() => handleAction('/subscription')}
+						className='bg-secondary p-6 rounded-[2.2rem] text-main border border-white/10 shadow-lg h-36 flex flex-col justify-between relative overflow-hidden cursor-pointer active:scale-95 transition-all'
 					>
-						<h4 className='font-black text-sm uppercase'>
-							PRO ДОСТУП
-						</h4>
-						<p className='text-[9px] text-slate-400 font-bold uppercase mt-1'>
-							Контакты
-						</p>
+						<div className='w-10 h-10 bg-red-700 rounded-2xl flex items-center justify-center text-white'>
+							<Lock size={20} />
+						</div>
+						<div>
+							<h4 className='font-black text-sm uppercase'>
+								PRO ДОСТУП
+							</h4>
+							<p className='text-[9px] text-hint font-bold uppercase mt-1'>
+								Открой контакты
+							</p>
+						</div>
 					</div>
 				</div>
 			</div>
 
 			{/* Spheres Horizontal Scroll */}
-			<div className='overflow-x-auto no-scrollbar flex gap-4 px-6 mb-8 mt-8'>
+			<div className='overflow-x-auto no-scrollbar flex gap-4 px-6 mb-8 mt-10'>
 				{spheres.map((s) => (
 					<div
 						key={s.id}
-						onClick={() =>
-							navigate('/search', { state: { initialSphere: s } })
-						}
-						className='flex-shrink-0 flex flex-col items-center gap-2 cursor-pointer'
+						onClick={() => handleAction('/search', 'light')}
+						className='flex-shrink-0 flex flex-col items-center gap-3 cursor-pointer'
 					>
-						<div className='w-14 h-14 bg-slate-50 border border-slate-100 rounded-2xl flex items-center justify-center text-xl transition-all active:scale-90'>
+						<div className='w-16 h-16 bg-secondary border border-white/5 rounded-[1.8rem] flex items-center justify-center text-2xl transition-all active:scale-90 shadow-sm'>
 							{s.icon}
 						</div>
-						<span className='text-[10px] font-black text-slate-400 uppercase tracking-tighter text-center'>
+						<span className='text-[10px] font-black text-hint uppercase tracking-tighter text-center'>
 							{s.name.split('-')[0]}
 						</span>
 					</div>
@@ -656,98 +710,94 @@ const HomePage: React.FC<{ user: User | null }> = ({ user }) => {
 			</div>
 
 			{/* Recommendations List */}
-			<div className='px-6 space-y-4'>
-				<div className='flex justify-between items-center mb-2'>
-					<h3 className='text-xl font-black text-slate-900 tracking-tight'>
+			<div className='px-6 space-y-5'>
+				<div className='flex justify-between items-center mb-2 px-1'>
+					<h3 className='text-xl font-black text-main tracking-tight uppercase text-xs tracking-[0.15em] opacity-60'>
 						Рекомендуем
 					</h3>
 					<button
-						onClick={() => navigate('/search')}
-						className='text-[11px] font-black text-red-700 uppercase tracking-widest'
+						onClick={() => handleAction('/search')}
+						className='text-[11px] font-black text-red-700 uppercase tracking-widest flex items-center gap-1'
 					>
-						Все →
+						Все <ChevronRight size={14} />
 					</button>
 				</div>
 
 				{isLoading ? (
 					<div className='flex justify-center py-20'>
-						<div className='w-8 h-8 border-[3px] border-slate-100 border-t-red-700 rounded-full animate-spin' />
+						<div className='w-10 h-10 border-4 border-white/5 border-t-red-700 rounded-full animate-spin' />
 					</div>
 				) : (
-					<div className='space-y-3 pb-20'>
-						{recommendations.map((vacancy) => (
+					<div className='space-y-4 pb-20'>
+						{recommendations.map((vacancy: any) => (
 							<div
 								key={vacancy.id}
 								onClick={() =>
-									navigate(`/detail/${vacancy.id}`, {
-										state: { type: 'job', data: vacancy },
-									})
+									handleAction(
+										`/detail/${vacancy.id}`,
+										'light',
+										{ type: 'job', data: vacancy },
+									)
 								}
-								className={`relative bg-white border  bg-amber-50/20'  'border-slate-100' p-4 rounded-[2rem] shadow-sm flex items-start gap-4 active:scale-[0.98] transition-all cursor-pointer`}
+								className={`relative bg-secondary border border-white/5 p-5 rounded-[2.5rem] shadow-sm flex flex-col gap-4 active:scale-[0.98] transition-all cursor-pointer overflow-hidden`}
 							>
-								{/* Media Icon */}
-								<div className='w-14 h-14 bg-slate-50 rounded-[1.2rem] flex-shrink-0 flex items-center justify-center text-2xl overflow-hidden border border-slate-50 shadow-inner'>
-									{vacancy.media?.[0] ? (
-										<img
-											src={vacancy.media[0].fileUrl}
-											className='w-full h-full object-cover'
-											alt=''
-										/>
-									) : (
-										<span className='text-2xl'>💼</span>
-									)}
-								</div>
-
-								{/* Content Info */}
-								<div className='flex-1 min-w-0'>
-									<div className='flex justify-between items-start gap-2'>
-										<div className='flex-1 min-w-0'>
-											<h4 className='font-black text-slate-900 text-[15px] leading-tight truncate'>
-												{vacancy.title}
-											</h4>
-											<p className='text-[10px] font-bold text-slate-400 uppercase mt-0.5 truncate'>
-												{vacancy.companyName ||
-													'Частное лицо'}{' '}
-												• {vacancy.cityName}
-											</p>
-										</div>
-
-										{/* Salary Block - Now strictly right-aligned and clear */}
-										<div className='text-right flex-shrink-0 max-w-[130px]'>
-											<span className='inline-block bg-red-50 text-red-700 text-[11px] font-black px-2 py-1 rounded-lg leading-tight break-words'>
-												{vacancy.salary}
-											</span>
-										</div>
-									</div>
-
-									{/* Bottom Tags */}
-									<div className='flex items-center gap-2 mt-3'>
-										<div className='bg-slate-100 px-2 py-0.5 rounded-md'>
-											<span className='text-[9px] font-black text-slate-500 uppercase tracking-tighter'>
-												{vacancy.subcategoryName ||
-													vacancy.categoryName}
-											</span>
-										</div>
-										{vacancy.distanceKm && (
-											<span className='text-[9px] font-bold text-emerald-600 flex items-center gap-0.5'>
-												📍{' '}
-												{Math.round(
-													vacancy.distanceKm * 10,
-												) / 10}{' '}
-												км
-											</span>
-										)}
-										<span className='text-[9px] font-bold text-slate-300 ml-auto'>
-											{formatDate(vacancy.createdAt)}
-										</span>
-									</div>
-								</div>
-
 								{vacancy.boosted && (
-									<div className='absolute -top-2 left-6 bg-amber-400 text-white text-[7px] font-black px-2 py-0.5 rounded-full uppercase tracking-widest shadow-sm'>
-										Top
+									<div className='absolute top-0 right-0 bg-gradient-to-br from-amber-400 to-orange-500 text-white text-[9px] font-black px-4 py-1.5 rounded-bl-2xl uppercase tracking-tighter shadow-sm z-10'>
+										<Zap
+											size={10}
+											fill='currentColor'
+											className='inline mr-1'
+										/>{' '}
+										Premium
 									</div>
 								)}
+
+								<div className='flex items-center gap-4'>
+									{/* Media Icon */}
+									<div className='w-14 h-14 bg-main rounded-[1.4rem] flex-shrink-0 flex items-center justify-center text-2xl overflow-hidden border border-white/5 shadow-inner'>
+										{vacancy.logo ? (
+											<img
+												src={vacancy.logo}
+												className='w-full h-full object-cover'
+												alt=''
+											/>
+										) : (
+											<span className='text-2xl'>💼</span>
+										)}
+									</div>
+
+									{/* Content Info */}
+									<div className='flex-1 min-w-0'>
+										<h4 className='font-black text-main text-[16px] leading-tight truncate pr-12'>
+											{vacancy.title}
+										</h4>
+										<p className='text-[10px] font-bold text-hint uppercase mt-1 truncate'>
+											{vacancy.companyName ||
+												vacancy.company ||
+												'Частное лицо'}{' '}
+											•{' '}
+											{vacancy.cityName ||
+												vacancy.location}
+										</p>
+									</div>
+								</div>
+
+								<div className='flex items-center justify-between pt-4 border-t border-white/5'>
+									<div className='flex items-center gap-3'>
+										<div className='bg-main px-3 py-1 rounded-full border border-white/5'>
+											<span className='text-[9px] font-black text-hint uppercase tracking-tighter'>
+												{vacancy.tags?.[0] ||
+													'Вакансия'}
+											</span>
+										</div>
+										<span className='text-[10px] font-bold text-red-600 font-black'>
+											{vacancy.salary}
+										</span>
+									</div>
+									<span className='text-[9px] font-bold text-hint opacity-40 uppercase'>
+										{vacancy.date}
+									</span>
+								</div>
 							</div>
 						))}
 					</div>
@@ -2336,7 +2386,8 @@ export const BonusesPage: React.FC<{ telegramId: number }> = ({
 	const handleShare = () => {
 		if (!info?.referralLink) return
 		const shareUrl = `https://t.me/share/url?url=${encodeURIComponent(info.referralLink)}&text=${encodeURIComponent('Зарабатывай вместе с WORK KG! 💸')}`
-		window.open(shareUrl, '_blank')
+		tg.openTelegramLink(shareUrl)
+		tg.HapticFeedback.impactOccurred('medium')
 	}
 
 	// RTK Query не имеет автоматического хука для "проверки по клику" в стиле query,
@@ -2548,18 +2599,72 @@ const AppContent: React.FC = () => {
 		if (tg) {
 			tg.ready()
 			tg.expand()
-			try {
-				tg.requestFullscreen()
-				if (tg.disableVerticalSwipes) {
-					tg.enableClosingConfirmation()
-					tg.disableVerticalSwipes()
-				}
-			} catch (e) {
-				console.error(e)
-			}
-		}
-	}, [])
 
+			/**
+			 * Version-safe features placement
+			 * Fullscreen is supported from 8.0
+			 * disableVerticalSwipes is supported from 7.7
+			 * closingConfirmation is supported from 6.2
+			 */
+			const version = tg.version || '6.0'
+
+			if (tg.isVersionAtLeast('8.0') && tg.requestFullscreen) {
+				try {
+					tg.requestFullscreen()
+				} catch (e) {
+					console.warn('Fullscreen request failed', e)
+				}
+			}
+
+			if (tg.isVersionAtLeast('7.7') && tg.disableVerticalSwipes) {
+				tg.disableVerticalSwipes()
+			}
+
+			if (tg.isVersionAtLeast('6.2') && tg.enableClosingConfirmation) {
+				tg.enableClosingConfirmation()
+			}
+
+			const syncTheme = () => {
+				const root = document.documentElement
+				if (tg.themeParams.bg_color)
+					root.style.setProperty(
+						'--tg-bg-color',
+						tg.themeParams.bg_color,
+					)
+				if (tg.themeParams.secondary_bg_color)
+					root.style.setProperty(
+						'--tg-secondary-bg-color',
+						tg.themeParams.secondary_bg_color,
+					)
+				if (tg.themeParams.text_color)
+					root.style.setProperty(
+						'--tg-text-color',
+						tg.themeParams.text_color,
+					)
+				if (tg.themeParams.hint_color)
+					root.style.setProperty(
+						'--tg-hint-color',
+						tg.themeParams.hint_color,
+					)
+			}
+			syncTheme()
+			tg.onEvent('themeChanged', syncTheme)
+		}
+
+		// Global script error logger
+		const handleGlobalError = (event: ErrorEvent) => {
+			console.error(
+				'[Global Error]:',
+				event.message,
+				'at',
+				event.filename,
+				':',
+				event.lineno,
+			)
+		}
+		window.addEventListener('error', handleGlobalError)
+		return () => window.removeEventListener('error', handleGlobalError)
+	}, [])
 	// Управление нативной кнопкой "Назад"
 	useEffect(() => {
 		if (!tg) return
@@ -2634,6 +2739,13 @@ const AppContent: React.FC = () => {
 		location.pathname,
 	)
 
+	const handleNav = (path: string) => {
+		if (tg?.HapticFeedback) {
+			tg.HapticFeedback.impactOccurred('light')
+		}
+		navigate(path)
+	}
+
 	return (
 		<div className='min-h-screen flex flex-col bg-slate-50 text-slate-900 overflow-x-hidden'>
 			<main
@@ -2687,35 +2799,48 @@ const AppContent: React.FC = () => {
 			</main>
 
 			{showNav && (
-				<nav className='fixed bottom-0 left-0 right-0 z-50 px-6 pb-8 pt-4 bg-white/40 backdrop-blur-xl'>
-					<div className='max-w-md mx-auto bg-white border border-slate-100 rounded-[2.5rem] p-3 flex justify-around items-center shadow-2xl relative'>
-						<NavTab
+				<nav className='fixed bottom-8 left-1/2 -translate-x-1/2 w-[92%] max-w-md z-50 animate-in slide-in-from-bottom-8 duration-700 delay-300 fill-mode-both'>
+					<div className='bg-secondary/80 backdrop-blur-3xl border border-white/10 rounded-[2.8rem] p-3 flex justify-between items-center shadow-[0_20px_50px_rgba(0,0,0,0.2)]'>
+						<NavButton
 							active={location.pathname === '/'}
-							onClick={() => navigate('/')}
-							icon={<HomeIcon />}
+							onClick={() => handleNav('/')}
+							icon={<Home size={22} />}
+							label='Дом'
 						/>
-						<NavTab
+						<NavButton
 							active={location.pathname === '/search'}
-							onClick={() => navigate('/search')}
-							icon={<SearchIcon />}
+							onClick={() => handleNav('/search')}
+							icon={<Search size={22} />}
+							label='Поиск'
 						/>
 
-						<div
-							className='w-16 h-16 bg-slate-900 text-white rounded-full flex items-center justify-center shadow-xl -mt-10 border-4 border-white transition-transform active:scale-95 cursor-pointer'
-							onClick={() => setIsPlusOpen(true)}
-						>
-							<PlusIcon />
+						<div className='relative -top-10 group'>
+							<div className='absolute inset-0 bg-red-600 rounded-full blur-xl opacity-30 group-active:opacity-50 transition-all'></div>
+							<button
+								onClick={() => {
+									if (tg?.HapticFeedback)
+										tg.HapticFeedback.impactOccurred(
+											'heavy',
+										)
+									navigate('/create')
+								}}
+								className='relative w-16 h-16 bg-red-600 rounded-full flex items-center justify-center shadow-2xl text-white active:scale-90 transition-transform'
+							>
+								<Plus size={36} strokeWidth={3} />
+							</button>
 						</div>
 
-						<NavTab
+						<NavButton
 							active={location.pathname === '/bonuses'}
-							onClick={() => navigate('/bonuses')}
-							icon={<StarIcon />}
+							onClick={() => handleNav('/bonuses')}
+							icon={<Star size={22} />}
+							label='Бонусы'
 						/>
-						<NavTab
+						<NavButton
 							active={location.pathname === '/profile'}
-							onClick={() => navigate('/profile')}
+							onClick={() => handleNav('/profile')}
 							icon={<UserIcon />}
+							label='Профиль'
 						/>
 					</div>
 				</nav>
@@ -2768,6 +2893,25 @@ const AppContent: React.FC = () => {
 		</div>
 	)
 }
+
+const NavButton = ({ active, icon, label, onClick }: any) => (
+	<button
+		onClick={onClick}
+		className={`flex flex-col items-center gap-1.5 flex-1 transition-all duration-300 ${active ? 'text-red-600 scale-110' : 'text-hint hover:text-main'}`}
+	>
+		<div
+			className={`transition-transform duration-300 ${active ? 'translate-y-[-2px]' : ''}`}
+		>
+			{icon}
+		</div>
+		<span
+			className={`text-[8px] font-black uppercase tracking-widest transition-all ${active ? 'opacity-100' : 'opacity-40'}`}
+		>
+			{label}
+		</span>
+		{active && <div className='w-1 h-1 bg-red-600 rounded-full'></div>}
+	</button>
+)
 
 const NavTab = ({ active, icon, onClick }: any) => (
 	<button

@@ -1,33 +1,34 @@
 {
-  "name": "fastjob-kg---premium-redesign",
-  "private": true,
-  "version": "0.0.0",
-  "type": "module",
-  "scripts": {
-    "dev": "vite",
-    "build": "vite build",
-    "preview": "vite preview"
-  },
-  "dependencies": {
-    "@google/genai": "^1.40.0",
-    "@hookform/resolvers": "^5.2.2",
-    "@reduxjs/toolkit": "^2.11.2",
-    "@telegram-apps/sdk": "^3.11.8",
-    "@tma.js/sdk-react": "^3.0.15",
-    "axios": "^1.7.9",
-    "react": "^19.2.4",
-    "react-dom": "^19.2.4",
-    "react-hook-form": "^7.71.1",
-    "react-redux": "^9.2.0",
-    "react-router-dom": "^7.13.0",
-    "yup": "^1.7.1",
-    "zod": "^4.3.6"
-  },
-  "devDependencies": {
-    "@types/node": "^22.14.0",
-    "@types/react": "^19.2.14",
-    "@vitejs/plugin-react": "^5.0.0",
-    "typescript": "~5.8.2",
-    "vite": "^6.2.0"
-  }
+	"name": "fastjob-kg---premium-redesign",
+	"private": true,
+	"version": "0.0.0",
+	"type": "module",
+	"scripts": {
+		"dev": "vite",
+		"build": "vite build",
+		"preview": "vite preview"
+	},
+	"dependencies": {
+		"@google/genai": "^1.40.0",
+		"@hookform/resolvers": "^5.2.2",
+		"@reduxjs/toolkit": "^2.11.2",
+		"@telegram-apps/sdk": "^3.11.8",
+		"@tma.js/sdk-react": "^3.0.15",
+		"axios": "^1.7.9",
+		"lucide-react": "^0.574.0",
+		"react": "^19.2.4",
+		"react-dom": "^19.2.4",
+		"react-hook-form": "^7.71.1",
+		"react-redux": "^9.2.0",
+		"react-router-dom": "^7.13.0",
+		"yup": "^1.7.1",
+		"zod": "^4.3.6"
+	},
+	"devDependencies": {
+		"@types/node": "^22.14.0",
+		"@types/react": "^19.2.14",
+		"@vitejs/plugin-react": "^5.0.0",
+		"typescript": "~5.8.2",
+		"vite": "^6.2.0"
+	}
 }
