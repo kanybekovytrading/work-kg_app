@@ -668,7 +668,7 @@ const HomePage: React.FC<{ user: User | null }> = ({ user }) => {
 								PLAY ZONE
 							</h4>
 							<p className='text-[9px] text-indigo-200 font-bold uppercase mt-1'>
-								Отдохни и заработай
+								Отдохни от работы
 							</p>
 						</div>
 					</div>
