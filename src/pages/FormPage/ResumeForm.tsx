@@ -338,7 +338,6 @@ export const ResumeForm: React.FC<Props> = ({
 				/>
 			</FormField>
 
-			{/* Кнопка Опубликовать */}
 			<button
 				type='submit'
 				disabled={loading}
