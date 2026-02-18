@@ -683,7 +683,7 @@ const HomePage: React.FC<{ user: User | null }> = ({ user }) => {
 										state: { type: 'job', data: vacancy },
 									})
 								}
-								className={`relative bg-white border ${vacancy.boosted ? 'border-amber-200 bg-amber-50/20' : 'border-slate-100'} p-4 rounded-[2rem] shadow-sm flex items-start gap-4 active:scale-[0.98] transition-all cursor-pointer`}
+								className={`relative bg-white border  bg-amber-50/20'  'border-slate-100' p-4 rounded-[2rem] shadow-sm flex items-start gap-4 active:scale-[0.98] transition-all cursor-pointer`}
 							>
 								{/* Media Icon */}
 								<div className='w-14 h-14 bg-slate-50 rounded-[1.2rem] flex-shrink-0 flex items-center justify-center text-2xl overflow-hidden border border-slate-50 shadow-inner'>
@@ -694,9 +694,7 @@ const HomePage: React.FC<{ user: User | null }> = ({ user }) => {
 											alt=''
 										/>
 									) : (
-										<span className='grayscale opacity-40'>
-											💼
-										</span>
+										<span className='text-2xl'>💼</span>
 									)}
 								</div>
 
