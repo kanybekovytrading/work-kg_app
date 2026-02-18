@@ -9,8 +9,9 @@ import {
 import { FormField } from '.'
 import { ElegantSelect } from '../../../App'
 
+// Оригинальный стиль инпутов с поддержкой темы
 const inputClass =
-	'w-full bg-slate-50 border border-slate-100 h-14 px-6 rounded-2xl text-sm font-bold focus:outline-none ring-2 ring-transparent focus:ring-red-50 transition-all placeholder:text-slate-300 text-slate-900'
+	'w-full bg-main border border-white/10 h-14 px-6 rounded-2xl text-sm font-bold focus:outline-none ring-4 ring-transparent focus:ring-red-500/5 focus:border-red-700/30 transition-all placeholder:text-hint/30 text-main shadow-sm'
 
 interface Props {
 	initialData?: any
@@ -53,36 +54,29 @@ export const ResumeForm: React.FC<Props> = ({
 		},
 	})
 
-	// Следим за изменениями для зависимых запросов
 	const selectedSphere = watch('sphereId')
 	const selectedCategory = watch('categoryId')
 
-	// --- RTK QUERY ХУКИ ВМЕСТО СТАРЫХ EFFECT ---
-
-	// Категории (авто-запрос при смене сферы)
+	// RTK Query для категорий и подкатегорий
 	const { data: categories = [], isFetching: isCatLoading } =
 		useGetCategoriesQuery(
 			{ tid: telegramId, sid: selectedSphere },
-			{ skip: selectedSphere === 0 }, // Не грузим, если сфера не выбрана
+			{ skip: selectedSphere === 0 },
 		)
 
-	// Подкатегории (авто-запрос при смене категории)
 	const { data: subcategories = [], isFetching: isSubCatLoading } =
 		useGetSubcategoriesQuery(
 			{ tid: telegramId, cid: selectedCategory },
-			{ skip: selectedCategory === 0 }, // Не грузим, если категория не выбрана
+			{ skip: selectedCategory === 0 },
 		)
 
-	// Состояния для медиа
 	const [selectedPhotos, setSelectedPhotos] = useState<File[]>([])
 	const [selectedVideos, setSelectedVideos] = useState<File[]>([])
 
-	// Инициализация данных при редактировании
 	useEffect(() => {
 		if (initialData) reset(initialData)
 	}, [initialData, reset])
 
-	// Передача медиа в родительский компонент
 	useEffect(() => {
 		onMediaChange(selectedPhotos, selectedVideos)
 	}, [selectedPhotos, selectedVideos, onMediaChange])
@@ -111,15 +105,14 @@ export const ResumeForm: React.FC<Props> = ({
 						render={({ field }) => (
 							<input
 								type='number'
-								// Если значение 0 или undefined, показываем пустую строку
-								value={field.value === 0 ? '' : field.value}
-								onChange={(e) => {
-									const val = e.target.value
-									// Исправлено: позволяем полю быть пустым при вводе
+								value={field.value || ''}
+								onChange={(e) =>
 									field.onChange(
-										val === '' ? '' : Number(val),
+										e.target.value === ''
+											? ''
+											: Number(e.target.value),
 									)
-								}}
+								}
 								placeholder='18'
 								className={inputClass}
 							/>
@@ -136,16 +129,15 @@ export const ResumeForm: React.FC<Props> = ({
 						render={({ field }) => (
 							<input
 								type='number'
-								// Исправлено: убираем принудительный 0 при отображении
-								value={field.value === 0 ? '' : field.value}
-								onChange={(e) => {
-									const val = e.target.value
-									// Исправлено: позволяем полю быть пустым при вводе
+								value={field.value || ''}
+								onChange={(e) =>
 									field.onChange(
-										val === '' ? '' : Number(val),
+										e.target.value === ''
+											? ''
+											: Number(e.target.value),
 									)
-								}}
-								placeholder='Напишите свой опыт'
+								}
+								placeholder='Лет опыта'
 								className={inputClass}
 							/>
 						)}
@@ -170,8 +162,8 @@ export const ResumeForm: React.FC<Props> = ({
 				)}
 			/>
 
-			{/* Блок Выбора сферы деятельности */}
-			<div className='space-y-6 p-6 bg-slate-50 rounded-[2.5rem] border border-slate-100'>
+			{/* Bento-блок выбора сферы (оставляем bg-secondary для структуры, но инпуты внутри будут белыми) */}
+			<div className='space-y-6 p-6 bg-secondary/50 rounded-[2.5rem] border border-white/5'>
 				<Controller
 					name='cityId'
 					control={control}
@@ -196,26 +188,18 @@ export const ResumeForm: React.FC<Props> = ({
 							options={spheres}
 							onChange={(val) => {
 								field.onChange(val)
-								// Сбрасываем зависимые поля
 								setValue('categoryId', 0)
 								setValue('subcategoryId', 0)
 							}}
 						/>
 					)}
 				/>
-
 				{selectedSphere > 0 && (
 					<Controller
 						name='categoryId'
 						control={control}
 						render={({ field }) => (
-							<div
-								className={
-									isCatLoading
-										? 'opacity-60 pointer-events-none'
-										: ''
-								}
-							>
+							<div className={isCatLoading ? 'opacity-60' : ''}>
 								<ElegantSelect
 									placeholder={
 										isCatLoading
@@ -234,18 +218,13 @@ export const ResumeForm: React.FC<Props> = ({
 						)}
 					/>
 				)}
-
 				{selectedCategory > 0 && subcategories.length > 0 && (
 					<Controller
 						name='subcategoryId'
 						control={control}
 						render={({ field }) => (
 							<div
-								className={
-									isSubCatLoading
-										? 'opacity-60 pointer-events-none'
-										: ''
-								}
+								className={isSubCatLoading ? 'opacity-60' : ''}
 							>
 								<ElegantSelect
 									placeholder={
@@ -264,13 +243,12 @@ export const ResumeForm: React.FC<Props> = ({
 				)}
 			</div>
 
-			{/* Блок Медиа */}
 			<div className='space-y-4'>
-				<label className='block text-sm font-bold text-slate-700 ml-1'>
+				<label className='block text-xs font-black text-hint uppercase tracking-widest ml-1'>
 					Фото и Видео
 				</label>
 				<div className='flex gap-2'>
-					<label className='flex-1 h-14 bg-slate-900 text-white rounded-2xl flex items-center justify-center cursor-pointer shadow-lg active:scale-95 transition-all'>
+					<label className='flex-1 h-14 bg-[#111111] text-white rounded-2xl flex items-center justify-center cursor-pointer shadow-lg active:scale-95 transition-all'>
 						<input
 							type='file'
 							multiple
@@ -284,11 +262,11 @@ export const ResumeForm: React.FC<Props> = ({
 								])
 							}
 						/>
-						<span className='text-xs font-black uppercase tracking-wider'>
+						<span className='text-[10px] font-black uppercase'>
 							+ Фото ({selectedPhotos.length})
 						</span>
 					</label>
-					<label className='flex-1 h-14 bg-slate-100 text-slate-900 rounded-2xl flex items-center justify-center cursor-pointer border border-slate-200 active:scale-95 transition-all'>
+					<label className='flex-1 h-14 bg-main text-main rounded-2xl flex items-center justify-center cursor-pointer border border-white/10 active:scale-95 transition-all'>
 						<input
 							type='file'
 							multiple
@@ -302,39 +280,10 @@ export const ResumeForm: React.FC<Props> = ({
 								])
 							}
 						/>
-						<span className='text-xs font-black uppercase tracking-wider'>
+						<span className='text-[10px] font-black uppercase'>
 							+ Видео ({selectedVideos.length})
 						</span>
 					</label>
-				</div>
-
-				{/* Превью фото */}
-				<div className='flex gap-3 overflow-x-auto no-scrollbar py-2'>
-					{selectedPhotos.map((file, i) => (
-						<div
-							key={i}
-							className='relative shrink-0 w-20 h-20 rounded-2xl overflow-hidden border border-slate-100'
-						>
-							<img
-								src={URL.createObjectURL(file)}
-								className='w-full h-full object-cover'
-								alt='preview'
-							/>
-							<button
-								type='button'
-								onClick={() =>
-									setSelectedPhotos(
-										selectedPhotos.filter(
-											(_, idx) => idx !== i,
-										),
-									)
-								}
-								className='absolute top-1 right-1 w-5 h-5 bg-red-600 text-white rounded-full text-[10px] flex items-center justify-center'
-							>
-								×
-							</button>
-						</div>
-					))}
 				</div>
 			</div>
 
@@ -348,8 +297,8 @@ export const ResumeForm: React.FC<Props> = ({
 					render={({ field }) => (
 						<textarea
 							{...field}
-							className='w-full bg-slate-50 border border-slate-100 min-h-[160px] p-6 rounded-3xl text-sm font-medium focus:outline-none resize-none'
-							placeholder='Расскажите о своих сильных сторонах...'
+							className='w-full bg-main border border-white/10 min-h-[160px] p-6 rounded-3xl text-sm font-medium focus:outline-none resize-none text-main shadow-sm'
+							placeholder='Расскажите о себе...'
 						/>
 					)}
 				/>
@@ -358,7 +307,7 @@ export const ResumeForm: React.FC<Props> = ({
 			<button
 				type='submit'
 				disabled={loading}
-				className='w-full py-6 bg-slate-900 text-white rounded-[2rem] font-black uppercase text-xs tracking-widest shadow-xl active:scale-[0.98] transition-all'
+				className='w-full py-6 bg-[#111111] text-white rounded-[2rem] font-black uppercase text-xs tracking-widest shadow-xl active:scale-[0.98] transition-all'
 			>
 				{loading
 					? 'Загрузка...'

@@ -37,7 +37,7 @@ import {
 	Briefcase,
 } from 'lucide-react'
 import { BANK_SERVICES, formatPhoneKG, formatDate } from './constants'
-import { User, Media } from './types'
+import { User, Media, Vacancy, Resume } from './types'
 import { GamesPage } from './src/pages/games/ui/GamesPage'
 import { ProfileDetail } from './src/pages/ProfileDetail'
 import CreatePage from './src/pages/FormPage/CreatePage'
@@ -545,39 +545,26 @@ export const ElegantSelect: React.FC<{
 	)
 }
 
-const BottomSheet: React.FC<{
-	isOpen: boolean
-	onClose: () => void
-	title: string
-	description?: string
-	children: React.ReactNode
-}> = ({ isOpen, onClose, title, description, children }) => {
+const BottomSheet = ({ isOpen, onClose, title, children }: any) => {
 	if (!isOpen) return null
 	return (
-		<div className='fixed inset-0 z-[150] flex items-end justify-center'>
+		<div className='fixed inset-0 z-[100] flex items-end justify-center animate-in fade-in duration-300'>
 			<div
-				className='absolute inset-0 bg-slate-900/40 backdrop-blur-sm'
+				className='absolute inset-0 bg-black/60 backdrop-blur-sm'
 				onClick={onClose}
-			/>
-			<div className='relative w-full max-w-xl bg-white rounded-t-[2.5rem] shadow-2xl p-8 pb-12 animate-in slide-in-from-bottom duration-300 overflow-y-auto max-h-[85vh]'>
-				<div className='w-12 h-1 bg-slate-100 rounded-full mx-auto mb-8 flex-shrink-0' />
-				<div className='text-center mb-8 flex-shrink-0'>
-					<h2 className='text-2xl font-black text-slate-900 leading-tight'>
-						{title}
-					</h2>
-					{description && (
-						<p className='text-slate-500 text-sm mt-2 font-medium'>
-							{description}
-						</p>
-					)}
+			></div>
+			<div className='relative w-full max-w-xl bg-main rounded-t-[3rem] p-8 shadow-2xl animate-in slide-in-from-bottom duration-500 fill-mode-both'>
+				<div className='w-12 h-1.5 bg-secondary rounded-full mx-auto mb-8 opacity-40'></div>
+				<div className='flex items-center justify-between mb-8'>
+					<h2 className='text-2xl font-black text-main'>{title}</h2>
+					<button
+						onClick={onClose}
+						className='p-2 bg-secondary rounded-full text-main'
+					>
+						Закрыть
+					</button>
 				</div>
-				<div className='space-y-3'>{children}</div>
-				<button
-					onClick={onClose}
-					className='w-full mt-6 py-2 text-slate-400 text-xs font-bold uppercase tracking-widest flex-shrink-0'
-				>
-					Закрыть
-				</button>
+				<div className='space-y-4'>{children}</div>
 			</div>
 		</div>
 	)
@@ -806,7 +793,6 @@ const HomePage: React.FC<{ user: User | null }> = ({ user }) => {
 		</div>
 	)
 }
-
 const SearchPage: React.FC<{ telegramId: number }> = ({ telegramId }) => {
 	const navigate = useNavigate()
 	const location = useLocation()
@@ -818,7 +804,6 @@ const SearchPage: React.FC<{ telegramId: number }> = ({ telegramId }) => {
 	} = useContext(LocationContext)
 	const s = location.state || {}
 
-	// 1. Состояние фильтров (Синхронизировано с URL)
 	const [type, setType] = useState<'job' | 'worker'>(
 		() => (searchParams.get('type') as any) || 'job',
 	)
@@ -837,7 +822,6 @@ const SearchPage: React.FC<{ telegramId: number }> = ({ telegramId }) => {
 		() => Number(searchParams.get('subId')) || null,
 	)
 
-	// 2. RTK Query Справочники
 	const { data: cities = [] } = useGetCitiesQuery(telegramId)
 	const { data: spheres = [] } = useGetSpheresQuery(telegramId)
 	const { data: categories = [] } = useGetCategoriesQuery(
@@ -849,14 +833,13 @@ const SearchPage: React.FC<{ telegramId: number }> = ({ telegramId }) => {
 		{ skip: !categoryId },
 	)
 
-	// 3. RTK Query Поиск (Аргументы включают все фильтры и координаты)
 	const searchArgs = {
 		tid: telegramId,
 		cityId,
 		sphereId,
 		categoryId,
 		subcategoryId,
-		query, // Передаем текст поиска
+		query,
 		userLatitude: loc?.lat || null,
 		userLongtude: loc?.lng || null,
 	}
@@ -869,7 +852,6 @@ const SearchPage: React.FC<{ telegramId: number }> = ({ telegramId }) => {
 	const results = type === 'job' ? jobResults : workerResults
 	const loading = isJobFetching || isWorkerFetching
 
-	// Синхронизация стейта с URL
 	useEffect(() => {
 		const params: any = { type, cityId }
 		if (query) params.query = query
@@ -888,9 +870,9 @@ const SearchPage: React.FC<{ telegramId: number }> = ({ telegramId }) => {
 	])
 
 	return (
-		<div className='bg-white min-h-screen pb-40 animate-in fade-in main-content-offset'>
+		<div className='bg-main min-h-screen pb-40 animate-in fade-in'>
 			<header
-				className='p-6 pt-12 space-y-6 sticky top-0 bg-white/95 backdrop-blur-md z-40 border-b border-slate-100'
+				className='p-6 pt-12 space-y-6 sticky top-0 bg-main/95 backdrop-blur-md z-40 border-b border-white/5'
 				style={{
 					paddingTop: 'calc(1.5rem + env(safe-area-inset-top))',
 				}}
@@ -898,33 +880,33 @@ const SearchPage: React.FC<{ telegramId: number }> = ({ telegramId }) => {
 				<div className='flex items-center gap-4'>
 					<button
 						onClick={() => navigate(-1)}
-						className='w-10 h-10 bg-slate-50 rounded-xl flex items-center justify-center active:scale-95 transition-transform text-slate-600'
+						className='w-10 h-10 bg-secondary rounded-xl flex items-center justify-center active:scale-95 transition-transform text-main'
 					>
 						←
 					</button>
 					<div className='flex-1 relative'>
-						<div className='absolute inset-y-0 left-4 flex items-center pointer-events-none text-slate-300'>
+						<div className='absolute inset-y-0 left-4 flex items-center pointer-events-none text-hint'>
 							<SearchIconSmall />
 						</div>
 						<input
 							value={query}
 							onChange={(e) => setQuery(e.target.value)}
 							placeholder='Ключевые слова...'
-							className='w-full bg-slate-50 border border-slate-100 h-12 pl-12 pr-4 rounded-2xl text-sm font-medium focus:outline-none ring-2 ring-transparent focus:ring-red-50 transition-all'
+							className='w-full bg-secondary border border-white/5 h-12 pl-12 pr-4 rounded-2xl text-sm font-medium focus:outline-none ring-2 ring-transparent focus:ring-red-500/20 transition-all text-main'
 						/>
 					</div>
 				</div>
 
-				<div className='flex bg-slate-100/50 p-1 rounded-2xl'>
+				<div className='flex bg-secondary p-1 rounded-2xl'>
 					<button
 						onClick={() => setType('job')}
-						className={`flex-1 py-2.5 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all ${type === 'job' ? 'bg-white text-red-700 shadow-sm' : 'text-slate-400'}`}
+						className={`flex-1 py-2.5 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all ${type === 'job' ? 'bg-main text-red-700 shadow-sm' : 'text-hint'}`}
 					>
 						Вакансии
 					</button>
 					<button
 						onClick={() => setType('worker')}
-						className={`flex-1 py-2.5 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all ${type === 'worker' ? 'bg-white text-red-700 shadow-sm' : 'text-slate-400'}`}
+						className={`flex-1 py-2.5 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all ${type === 'worker' ? 'bg-main text-red-700 shadow-sm' : 'text-hint'}`}
 					>
 						Сотрудники
 					</button>
@@ -949,32 +931,6 @@ const SearchPage: React.FC<{ telegramId: number }> = ({ telegramId }) => {
 							}}
 						/>
 					</div>
-					{sphereId && (
-						<div className='grid grid-cols-2 gap-3 animate-in fade-in slide-in-from-top-2'>
-							<ElegantSelect
-								placeholder='Категория'
-								value={categoryId}
-								options={categories}
-								onChange={(id) => {
-									setCategoryId(id)
-									setSubcategoryId(null)
-								}}
-							/>
-							<ElegantSelect
-								disabled={
-									!categoryId || subcategories.length === 0
-								}
-								placeholder={
-									subcategories.length === 0
-										? 'Нет подкат.'
-										: 'Подкатегория'
-								}
-								value={subcategoryId}
-								options={subcategories}
-								onChange={setSubcategoryId}
-							/>
-						</div>
-					)}
 				</div>
 			</header>
 
@@ -1001,7 +957,7 @@ const SearchPage: React.FC<{ telegramId: number }> = ({ telegramId }) => {
 						/>
 					))
 				) : (
-					<div className='p-20 text-center text-slate-300 font-bold uppercase tracking-widest text-[10px]'>
+					<div className='p-20 text-center text-hint font-bold uppercase tracking-widest text-[10px]'>
 						Ничего не найдено
 					</div>
 				)}
@@ -1009,7 +965,6 @@ const SearchPage: React.FC<{ telegramId: number }> = ({ telegramId }) => {
 		</div>
 	)
 }
-
 // Глобальный сет для отслеживания просмотров (как в твоем оригинале)
 const viewedIds = new Set<string>()
 
@@ -1052,10 +1007,10 @@ const SearchResultItem = ({ item, type, onClick }: any) => {
 			onClick={() => onClick(stats)}
 			className={`relative p-6 rounded-[2.5rem] border active:scale-[0.98] transition-all cursor-pointer ${
 				isBoosted
-					? 'bg-amber-50/50 border-amber-400 shadow-md shadow-amber-100'
+					? 'bg-amber-500/10 border-amber-400 shadow-md shadow-amber-500/20'
 					: isFree
-						? 'bg-emerald-50/50 border-emerald-400 shadow-sm'
-						: 'bg-white border-slate-100 shadow-sm'
+						? 'bg-emerald-500/10 border-emerald-400 shadow-sm'
+						: 'bg-secondary border-white/5 shadow-sm'
 			}`}
 		>
 			{isBoosted && (
@@ -1072,9 +1027,8 @@ const SearchResultItem = ({ item, type, onClick }: any) => {
 			)}
 
 			<div className='flex gap-4 items-start mb-3'>
-				{/* --- ФОТО ПРОФИЛЯ ДЛЯ СОТРУДНИКА --- */}
 				{type === 'worker' && (
-					<div className='w-16 h-16 rounded-2xl overflow-hidden bg-slate-100 shrink-0 border border-slate-200 shadow-inner'>
+					<div className='w-16 h-16 rounded-2xl overflow-hidden bg-main shrink-0 border border-white/10 shadow-inner'>
 						{item.media?.[0]?.fileUrl ? (
 							<img
 								src={item.media[0].fileUrl}
@@ -1082,7 +1036,7 @@ const SearchResultItem = ({ item, type, onClick }: any) => {
 								alt={item.name}
 							/>
 						) : (
-							<div className='w-full h-full flex items-center justify-center text-2xl bg-slate-50'>
+							<div className='w-full h-full flex items-center justify-center text-2xl'>
 								👤
 							</div>
 						)}
@@ -1090,17 +1044,15 @@ const SearchResultItem = ({ item, type, onClick }: any) => {
 				)}
 
 				<div className='flex-1 min-w-0 text-left'>
-					<span className='text-[9px] font-black text-white uppercase bg-[#111111] px-2 py-1 rounded-lg inline-block mb-1'>
+					<span className='text-[9px] font-black text-white uppercase bg-red-700 px-2 py-1 rounded-lg inline-block mb-1'>
 						{type === 'job' ? 'Вакансия' : 'Резюме'}
 					</span>
 					<div className='flex justify-between items-start gap-2'>
-						<h3 className='text-lg font-black text-slate-900 leading-tight truncate'>
+						<h3 className='text-lg font-black text-main leading-tight truncate'>
 							{type === 'job' ? item.title : item.name}
 						</h3>
 						<div
-							className={`text-xs font-black text-right shrink-0 whitespace-nowrap ${
-								isBoosted ? 'text-amber-600' : 'text-red-700'
-							}`}
+							className={`text-xs font-black text-right shrink-0 whitespace-nowrap ${isBoosted ? 'text-amber-500' : 'text-red-700'}`}
 						>
 							{type === 'job'
 								? `${item.salary} 💵`
@@ -1110,25 +1062,19 @@ const SearchResultItem = ({ item, type, onClick }: any) => {
 				</div>
 			</div>
 
-			<p className='text-sm text-slate-500 line-clamp-2 font-medium mb-4 text-left'>
+			<p className='text-sm text-hint line-clamp-2 font-medium mb-4 text-left'>
 				{item.description}
 			</p>
 
 			<div
-				className={`pt-4 border-t flex items-center justify-between ${
-					isBoosted
-						? 'border-amber-200/50'
-						: isFree
-							? 'border-emerald-200/50'
-							: 'border-slate-50'
-				}`}
+				className={`pt-4 border-t flex items-center justify-between ${isBoosted ? 'border-amber-400/20' : isFree ? 'border-emerald-400/20' : 'border-white/5'}`}
 			>
 				<div className='flex items-center gap-3'>
-					<div className='flex items-center gap-1 text-[10px] font-black text-slate-400'>
+					<div className='flex items-center gap-1 text-[10px] font-black text-hint'>
 						<ViewIcon />
 						<span>{stats?.viewsCount ?? 0}</span>
 					</div>
-					<div className='flex items-center gap-1 text-[10px] font-black text-slate-400'>
+					<div className='flex items-center gap-1 text-[10px] font-black text-hint'>
 						<ClickIcon />
 						<span>{stats?.contactClicksCount ?? 0}</span>
 					</div>
@@ -1152,15 +1098,14 @@ const SearchResultItem = ({ item, type, onClick }: any) => {
 								? (stats?.responseCount ?? 0)
 								: (stats?.invitationCount ?? 0)}
 						</span>
-
 						{type === 'job' && item.distanceKm !== undefined && (
-							<span className='ml-1 text-slate-400 font-medium'>
+							<span className='ml-1 text-hint font-medium'>
 								• {Math.round(item.distanceKm)} км
 							</span>
 						)}
 					</div>
 				</div>
-				<div className='text-[10px] font-bold text-slate-400 flex items-center gap-1'>
+				<div className='text-[10px] font-bold text-hint flex items-center gap-1'>
 					<span>📍</span>
 					{item.cityName}
 				</div>
@@ -1168,16 +1113,15 @@ const SearchResultItem = ({ item, type, onClick }: any) => {
 		</div>
 	)
 }
+
 const DetailPage: React.FC<{ telegramId: number }> = ({ telegramId }) => {
 	const navigate = useNavigate()
 	const location = useLocation()
 	const { showToast } = useToast()
 	const { location: userLocation } = useContext(LocationContext)
 
-	// Данные, переданные через state (id и тип обязательны)
 	const { type, data } = location.state || {}
 
-	// 1. RTK Query: Детальные данные
 	const { data: newData, isLoading } =
 		type === 'worker'
 			? useGetResumeDetailQuery({
@@ -1191,7 +1135,7 @@ const DetailPage: React.FC<{ telegramId: number }> = ({ telegramId }) => {
 					isProfile: false,
 				})
 	let item: any = newData
-	// 2. RTK Query: Статистика
+
 	const { data: stats } =
 		type === 'worker'
 			? useGetResumeStatsQuery(data.id)
@@ -1201,7 +1145,6 @@ const DetailPage: React.FC<{ telegramId: number }> = ({ telegramId }) => {
 	const [trackView] = useTrackViewMutation()
 	const [selectedMedia, setSelectedMedia] = useState<Media | null>(null)
 
-	// Трекинг просмотра при загрузке
 	useEffect(() => {
 		if (data?.id)
 			trackView({
@@ -1252,10 +1195,15 @@ const DetailPage: React.FC<{ telegramId: number }> = ({ telegramId }) => {
 		return String(item.phone).includes('*')
 	}, [item?.phone, item?.free])
 
+	const isJob = type === 'job' || type === 'vac'
+	const vacancy = isJob ? (item as Vacancy) : null
+	const resume = !isJob ? (item as Resume) : null
+
+	// Лоадер теперь тоже в теме
 	if (isLoading || !item)
 		return (
-			<div className='min-h-screen flex items-center justify-center bg-white'>
-				<div className='w-10 h-10 border-[3px] border-slate-900 border-t-transparent rounded-full animate-spin' />
+			<div className='min-h-screen flex items-center justify-center bg-main'>
+				<div className='w-10 h-10 border-[3px] border-red-700 border-t-transparent rounded-full animate-spin' />
 			</div>
 		)
 
@@ -1265,16 +1213,16 @@ const DetailPage: React.FC<{ telegramId: number }> = ({ telegramId }) => {
 				media={selectedMedia}
 				onClose={() => setSelectedMedia(null)}
 			/>
-			<div className='pb-32 animate-in fade-in duration-500 bg-white min-h-screen text-slate-900'>
+			<div className='pb-32 animate-in fade-in duration-500 bg-main min-h-screen text-main'>
 				<header
-					className='px-6 py-4 flex items-center justify-between sticky top-0 bg-white/95 backdrop-blur-md z-50 border-b border-slate-100'
+					className='px-6 py-4 flex items-center justify-between sticky top-0 bg-main/95 backdrop-blur-md z-50 border-b border-white/5'
 					style={{
 						paddingTop: 'calc(1.5rem + env(safe-area-inset-top))',
 					}}
 				>
 					<button
 						onClick={() => navigate(-1)}
-						className='w-10 h-10 flex items-center justify-center rounded-full bg-slate-50 text-slate-600 active:scale-90 transition-all'
+						className='w-10 h-10 flex items-center justify-center rounded-full bg-secondary text-main active:scale-90 transition-all'
 					>
 						<svg
 							className='w-5 h-5'
@@ -1293,159 +1241,96 @@ const DetailPage: React.FC<{ telegramId: number }> = ({ telegramId }) => {
 				</header>
 
 				<div className='px-6 pt-6 space-y-8 text-left'>
+					{/* Заголовок и Цена */}
 					<section className='space-y-4'>
 						<div className='space-y-2'>
-							<div className='flex items-center gap-2'>
-								<span className='text-[10px] font-black text-slate-400 uppercase tracking-widest'>
-									{item.cityName} • {item.categoryName}
-								</span>
-								{item.isActive !== false && (
-									<span className='w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse'></span>
-								)}
-							</div>
-							<h1 className='text-3xl font-black text-slate-900 leading-tight'>
+							<span className='text-[10px] font-black text-hint uppercase tracking-widest'>
+								{item.cityName} / {item.categoryName} /
+								{item.subcategoryName}
+							</span>
+							<h1 className='text-3xl font-black text-main leading-tight'>
 								{type === 'worker' ? item.name : item.title}
 							</h1>
-
-							{/* ВОССТАНОВЛЕНО: Блок компании */}
-							{item.companyName && (
-								<p className='text-sm font-bold text-red-800 flex items-center gap-2'>
-									<svg
-										className='w-4 h-4'
-										fill='none'
-										stroke='currentColor'
-										viewBox='0 0 24 24'
-									>
-										<path
-											strokeLinecap='round'
-											strokeLinejoin='round'
-											strokeWidth='2.5'
-											d='M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4'
-										/>
-									</svg>
-									{item.companyName}
-								</p>
-							)}
 						</div>
-						<div className='inline-flex items-center px-6 py-3 bg-slate-50 text-slate-900 text-xl font-black rounded-2xl border border-slate-100 shadow-sm'>
-							{type === 'job'
-								? item.salary
-								: `${item.experience}г. опыта`}
+						<div className='inline-flex items-center px-6 py-3 bg-secondary text-main text-xl font-black rounded-2xl border border-white/5 shadow-sm'>
+							{isJob
+								? vacancy?.salary || 'ЗП не указана'
+								: `${resume?.experience}г. опыта`}
 						</div>
 					</section>
 
-					{/* Галерея: ВОССТАНОВЛЕНА сортировка (Видео вперед) */}
-					{item.media && item.media.length > 0 && (
-						<section className='space-y-4'>
-							<h4 className='text-[10px] font-black text-slate-400 uppercase tracking-widest px-1'>
-								Галерея работ
-							</h4>
-							<div className='flex gap-4 overflow-x-auto no-scrollbar snap-x snap-mandatory pb-4 px-1'>
-								{[...item.media]
-									.sort((a) =>
-										a.mediaType === 'VIDEO' ? -1 : 1,
-									)
-									.map((m: Media) => (
-										<div
-											key={m.id}
-											onClick={() => setSelectedMedia(m)}
-											className='flex-shrink-0 w-[85%] sm:w-80 h-56 bg-black rounded-[2.5rem] overflow-hidden shadow-xl border border-slate-100 snap-center relative group cursor-pointer'
-										>
-											{m.mediaType === 'VIDEO' ? (
-												<>
-													<video
-														src={m.fileUrl}
-														className='w-full h-full object-cover pointer-events-none'
-													/>
-													<div className='absolute inset-0 flex items-center justify-center bg-black/20'>
-														<div className='w-12 h-12 rounded-full bg-white/30 backdrop-blur-sm flex items-center justify-center'>
-															<div className='w-0 h-0 border-t-8 border-t-transparent border-l-[16px] border-l-white border-b-8 border-b-transparent ml-1'></div>
-														</div>
-													</div>
-												</>
-											) : (
-												<img
-													src={m.fileUrl}
-													className='w-full h-full object-cover transition-transform duration-500 group-active:scale-110'
-													alt=''
-												/>
-											)}
-										</div>
-									))}
-							</div>
-						</section>
-					)}
-
-					{/* Ключевые детали */}
-					<section className='bg-slate-50 p-6 rounded-[2.5rem] border border-slate-100 space-y-6'>
-						<h4 className='text-[10px] font-black text-slate-400 uppercase tracking-widest'>
+					{/* КЛЮЧЕВЫЕ ДЕТАЛИ (Добавлено) */}
+					<section className='bg-secondary p-6 rounded-[2.5rem] border border-white/5 space-y-6'>
+						<h4 className='text-[10px] font-black text-hint uppercase tracking-widest'>
 							Ключевые детали
 						</h4>
 						<div className='grid grid-cols-1 gap-6'>
-							<DetailRow
-								icon={<ClockIconSmall />}
-								label='График работы'
-								value={item.schedule || 'Не указано'}
-							/>
+							{isJob && (
+								<DetailRow
+									icon={<ClockIconSmall />}
+									label='График работы'
+									value={vacancy?.schedule || 'Не указано'}
+								/>
+							)}
 							<DetailRow
 								icon={<ExpIconSmall />}
 								label='Опыт'
-								value={`${item.experienceInYear || item.experience || 0} лет`}
+								value={`${isJob ? vacancy?.experienceInYear : resume?.experience} лет`}
 							/>
 
-							{/* ВОССТАНОВЛЕНО: Полная логика 2GIS */}
-							<div
-								onClick={open2GISRoute}
-								className='cursor-pointer active:opacity-70 transition-opacity'
-							>
-								<DetailRow
-									icon={<LocIconSmall />}
-									label='Адрес / Район (Карта)'
-									value={item.address || 'Центр города'}
-								/>
-								<div className='pl-[56px] text-[9px] font-bold text-emerald-600 uppercase mt-1 flex items-center gap-1'>
-									<svg
-										className='w-3 h-3'
-										fill='none'
-										viewBox='0 0 24 24'
-										stroke='currentColor'
-									>
-										<path
-											strokeLinecap='round'
-											strokeLinejoin='round'
-											strokeWidth='2.5'
-											d='M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7'
-										/>
-									</svg>
-									<span>Открыть маршрут в 2GIS</span>
+							{isJob && vacancy?.address && (
+								<div
+									onClick={open2GISRoute}
+									className='cursor-pointer active:opacity-70 transition-opacity'
+								>
+									<DetailRow
+										icon={<LocIconSmall />}
+										label='Адрес / Район (Карта)'
+										value={vacancy.address}
+									/>
+									<div className='pl-[56px] text-[9px] font-bold text-emerald-600 uppercase mt-1 flex items-center gap-1'>
+										{/* RouteIcon должен быть определен в компоненте или импортирован */}
+										<svg
+											className='w-3 h-3'
+											fill='none'
+											viewBox='0 0 24 24'
+											stroke='currentColor'
+										>
+											<path
+												strokeLinecap='round'
+												strokeLinejoin='round'
+												strokeWidth='2.5'
+												d='M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7'
+											/>
+										</svg>
+										<span>Открыть маршрут в 2GIS</span>
+									</div>
 								</div>
-							</div>
-
-							{/* ВОССТАНОВЛЕНО: Блок Условия (Возраст и Пол) */}
+							)}
 							<DetailRow
 								icon={<UserIconSmall />}
 								label='Условия'
-								value={`Возраст: ${item.minAge || item.age || 18}-${item.maxAge || 45} • Пол: ${
-									item.preferredGender === 'ANY'
-										? 'Любой'
-										: item.preferredGender === 'MALE'
-											? 'Мужской'
-											: 'Женский'
-								}`}
+								value={
+									isJob
+										? `Возраст: ${vacancy?.minAge || 18}-${vacancy?.maxAge || 60} • Пол: ${vacancy?.preferredGender === 'MALE' ? 'Мужчина' : vacancy?.preferredGender === 'FEMALE' ? 'Женщина' : 'Любой'}`
+										: `Возраст: ${resume?.age} • Пол: ${resume?.gender === 'MALE' ? 'Мужчина' : 'Женщина'}`
+								}
 							/>
 						</div>
 					</section>
 
+					{/* ПОДРОБНОЕ ОПИСАНИЕ (Добавлено) */}
 					<section className='space-y-4'>
-						<h4 className='text-[10px] font-black text-slate-400 uppercase tracking-widest px-1'>
+						<h4 className='text-[10px] font-black text-hint uppercase tracking-widest px-1'>
 							Подробное описание
 						</h4>
-						<div className='text-slate-700 leading-relaxed whitespace-pre-wrap font-medium text-sm px-1'>
+						<div className='text-main/80 leading-relaxed whitespace-pre-wrap font-medium text-sm px-1'>
 							{item.description}
 						</div>
 					</section>
 
-					<section className='flex items-center justify-between px-2 pt-4 border-t border-slate-100 text-[10px] font-black text-slate-400 uppercase'>
+					{/* СТАТИСТИКА И ДАТА (Добавлено) */}
+					<section className='flex items-center justify-between px-2 pt-4 border-t border-white/5 text-[10px] font-black text-hint uppercase tracking-widest'>
 						<div className='flex items-center gap-4'>
 							<span className='flex items-center gap-1.5'>
 								<ViewIcon /> {stats?.viewsCount || 0}
@@ -1454,31 +1339,26 @@ const DetailPage: React.FC<{ telegramId: number }> = ({ telegramId }) => {
 								<ClickIcon /> {stats?.contactClicksCount || 0}
 							</span>
 						</div>
-						<span>{formatDate(item.createdAt)}</span>
+						<span>
+							{item.createdAt
+								? new Date(item.createdAt).toLocaleDateString()
+								: 'Сегодня'}
+						</span>
 					</section>
 				</div>
 
-				<div className='fixed bottom-0 left-0 right-0 p-6 bg-white/90 backdrop-blur-2xl border-t border-slate-100 z-50 shadow-[0_-10px_40px_rgba(0,0,0,0.05)]'>
+				{/* Футер с кнопками */}
+				<div className='fixed bottom-0 left-0 right-0 p-6 bg-main/90 backdrop-blur-2xl border-t border-white/5 z-50 shadow-[0_-10px_40px_rgba(0,0,0,0.05)]'>
 					<div className='max-w-xl mx-auto'>
 						{isLocked ? (
-							<div className='flex flex-col gap-4 animate-in slide-in-from-bottom duration-500'>
-								<div className='text-center space-y-1'>
-									<p className='text-[10px] font-black text-red-600 uppercase tracking-[0.2em]'>
-										Контакты ограничены 🔒
-									</p>
-									<p className='text-[11px] font-bold text-slate-400'>
-										Оформите PRO подписку для доступа
-									</p>
-								</div>
-								<button
-									onClick={() => navigate('/subscription')}
-									className='h-16 bg-slate-900 text-white rounded-2xl font-black uppercase tracking-widest shadow-xl flex items-center justify-center gap-3 border-2 border-slate-900 active:scale-95 transition-all'
-								>
-									<span>💎</span> Купить PRO Доступ
-								</button>
-							</div>
+							<button
+								onClick={() => navigate('/subscription')}
+								className='w-full h-16 bg-red-700 text-white rounded-2xl font-black uppercase tracking-widest shadow-xl'
+							>
+								💎 Купить PRO Доступ
+							</button>
 						) : (
-							<div className='grid grid-cols-2 gap-3 animate-in fade-in zoom-in-95'>
+							<div className='grid grid-cols-2 gap-3 animate-in fade-in zoom-in-95 duration-300'>
 								<button
 									onClick={() =>
 										handleContactClick('whatsapp')
@@ -1491,7 +1371,7 @@ const DetailPage: React.FC<{ telegramId: number }> = ({ telegramId }) => {
 									onClick={() =>
 										handleContactClick('telegram')
 									}
-									className='h-16 bg-slate-900 text-white rounded-2xl font-black uppercase tracking-widest shadow-xl active:scale-95 transition-all'
+									className='h-16 bg-red-700 text-white rounded-2xl font-black uppercase tracking-widest shadow-xl active:scale-95 transition-all'
 								>
 									Telegram
 								</button>
@@ -1537,7 +1417,6 @@ const ProfilePage: React.FC<{ telegramId: number }> = ({ telegramId }) => {
 	} | null>(null)
 	const isBoosting = isBoostingVac || isBoostingRes
 
-	// Логика изменения статуса (Активно / Скрыто)
 	const handleToggleStatus = async (item: any, type: 'res' | 'vac') => {
 		try {
 			const newStatus = !item.isActive
@@ -1563,7 +1442,6 @@ const ProfilePage: React.FC<{ telegramId: number }> = ({ telegramId }) => {
 		}
 	}
 
-	// Логика удаления
 	const handleDelete = async (id: number, type: 'res' | 'vac') => {
 		if (
 			!window.confirm(
@@ -1571,13 +1449,10 @@ const ProfilePage: React.FC<{ telegramId: number }> = ({ telegramId }) => {
 			)
 		)
 			return
-
 		try {
-			if (type === 'vac') {
+			if (type === 'vac')
 				await deleteVac({ id, tid: telegramId }).unwrap()
-			} else {
-				await deleteRes({ id, tid: telegramId }).unwrap()
-			}
+			else await deleteRes({ id, tid: telegramId }).unwrap()
 			showToast('Удалено успешно', 'success')
 		} catch (e) {
 			showToast('Ошибка при удалении', 'error')
@@ -1587,17 +1462,16 @@ const ProfilePage: React.FC<{ telegramId: number }> = ({ telegramId }) => {
 	const handleApplyBoost = async () => {
 		if (!boostTarget) return
 		try {
-			if (boostTarget.type === 'res') {
+			if (boostTarget.type === 'res')
 				await boostResume({
 					id: boostTarget.id,
 					tid: telegramId,
 				}).unwrap()
-			} else {
+			else
 				await boostVacancy({
 					id: boostTarget.id,
 					tid: telegramId,
 				}).unwrap()
-			}
 			showToast('Объявление поднято в ТОП! 🚀', 'success')
 			setBoostTarget(null)
 		} catch (e: any) {
@@ -1608,61 +1482,45 @@ const ProfilePage: React.FC<{ telegramId: number }> = ({ telegramId }) => {
 	const renderCard = (item: any, type: 'res' | 'vac') => (
 		<div
 			key={item.id}
-			className={`bg-white p-6 rounded-[2.5rem] border shadow-sm transition-all relative overflow-hidden ${
-				item.isActive
-					? 'border-slate-100'
-					: 'border-slate-200 bg-slate-50/50'
+			className={`bg-main p-6 rounded-[2.5rem] border shadow-sm transition-all relative overflow-hidden ${
+				item.isActive ? 'border-white/5' : 'border-white/10 opacity-60'
 			}`}
 		>
-			{/* Бейдж статуса */}
 			<div
-				className={`absolute top-0 left-0 px-4 py-1 text-[8px] font-black uppercase rounded-br-2xl ${
-					item.isActive
-						? 'bg-emerald-500 text-white'
-						: 'bg-slate-400 text-white'
-				}`}
+				className={`absolute top-0 left-0 px-4 py-1 text-[8px] font-black uppercase rounded-br-2xl ${item.isActive ? 'bg-emerald-500 text-white' : 'bg-hint text-white'}`}
 			>
 				{item.isActive ? 'Активно' : 'Скрыто'}
 			</div>
 
-			<div className='flex justify-between items-start mb-5 pt-2'>
-				<div className='text-left'>
+			<div className='flex justify-between items-start mb-5 pt-2 text-left'>
+				<div>
 					<h4
-						className={`font-black text-lg leading-tight ${!item.isActive && 'text-slate-400'}`}
+						className={`font-black text-lg leading-tight text-main ${!item.isActive && 'text-hint'}`}
 					>
 						{type === 'res' ? item.name : item.title}
 					</h4>
-					<p className='text-[10px] font-bold text-slate-400 uppercase mt-1'>
+					<p className='text-[10px] font-bold text-hint uppercase mt-1'>
 						{item.cityName} • {item.categoryName}
 					</p>
 				</div>
 				<div className='flex gap-2'>
-					{/* Переключатель видимости */}
 					<button
 						onClick={() => handleToggleStatus(item, type)}
-						className={`w-10 h-10 flex items-center justify-center rounded-xl transition-all active:scale-90 ${
-							item.isActive
-								? 'bg-amber-50 text-amber-600'
-								: 'bg-emerald-50 text-emerald-600'
-						}`}
+						className={`w-10 h-10 flex items-center justify-center rounded-xl transition-all active:scale-90 bg-secondary text-main`}
 					>
 						{item.isActive ? '👁️‍🗨️' : '👁️'}
 					</button>
-
-					{/* Редактировать */}
 					<button
 						onClick={() =>
 							navigate('/edit', { state: { type, id: item.id } })
 						}
-						className='w-10 h-10 flex items-center justify-center bg-slate-50 rounded-xl active:scale-90'
+						className='w-10 h-10 flex items-center justify-center bg-secondary rounded-xl active:scale-90'
 					>
 						✏️
 					</button>
-
-					{/* Удалить */}
 					<button
 						onClick={() => handleDelete(item.id, type)}
-						className='w-10 h-10 flex items-center justify-center bg-rose-50 text-rose-600 rounded-xl active:scale-90'
+						className='w-10 h-10 flex items-center justify-center bg-red-700/10 text-red-700 rounded-xl active:scale-90'
 					>
 						🗑️
 					</button>
@@ -1679,7 +1537,7 @@ const ProfilePage: React.FC<{ telegramId: number }> = ({ telegramId }) => {
 							},
 						})
 					}
-					className='py-4 bg-slate-900 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest active:scale-[0.98]'
+					className='py-4 bg-secondary text-main rounded-2xl text-[10px] font-black uppercase tracking-widest active:scale-[0.98]'
 				>
 					Просмотр
 				</button>
@@ -1692,11 +1550,7 @@ const ProfilePage: React.FC<{ telegramId: number }> = ({ telegramId }) => {
 							name: type === 'res' ? item.name : item.title,
 						})
 					}
-					className={`py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all ${
-						item.isActive
-							? 'bg-red-50 text-red-700 active:scale-[0.98]'
-							: 'bg-slate-100 text-slate-300 cursor-not-allowed'
-					}`}
+					className={`py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all ${item.isActive ? 'bg-red-700/10 text-red-700 active:scale-[0.98]' : 'bg-secondary text-hint cursor-not-allowed'}`}
 				>
 					Продвинуть 🚀
 				</button>
@@ -1705,84 +1559,82 @@ const ProfilePage: React.FC<{ telegramId: number }> = ({ telegramId }) => {
 	)
 
 	return (
-		<div className='px-5 space-y-6 py-12 pb-40 min-h-screen bg-[#fcfcfc]'>
-			<div className='bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm space-y-4'>
+		<div className='px-5 space-y-6 py-12 pb-40 min-h-screen bg-secondary'>
+			{/* Информация о пользователе */}
+			<div className='bg-main p-8 rounded-[2.5rem] border border-white/5 shadow-sm space-y-4'>
 				<div className='flex items-center gap-4'>
-					<div className='w-16 h-16 bg-slate-100 rounded-3xl flex items-center justify-center font-black text-slate-900 text-2xl overflow-hidden'>
+					<div className='w-16 h-16 bg-secondary rounded-3xl flex items-center justify-center font-black text-main text-2xl overflow-hidden'>
 						{tgUserPhoto ? (
 							<img
 								src={tgUserPhoto}
 								alt='Profile'
 								className='w-full h-full object-cover'
-								onError={(e) => {
-									e.currentTarget.style.display = 'none'
-								}}
 							/>
 						) : (
 							user?.firstName?.charAt(0)
 						)}
 					</div>
 					<div className='text-left'>
-						<h3 className='text-xl font-black'>
+						<h3 className='text-xl font-black text-main'>
 							{user?.firstName}
 						</h3>
-						<p className='text-xs font-bold text-slate-400 uppercase'>
+						<p className='text-xs font-bold text-hint uppercase'>
 							ID: {telegramId}
 						</p>
 					</div>
 					<button
 						onClick={() => navigate('/subscription')}
-						className='ml-auto px-4 py-2 bg-slate-900 text-white text-[9px] font-black uppercase rounded-xl'
+						className='ml-auto px-4 py-2 bg-red-700 text-white text-[9px] font-black uppercase rounded-xl shadow-lg shadow-red-700/20'
 					>
 						PRO 💎
 					</button>
 				</div>
-				<div className='pt-4 border-t border-slate-50 flex justify-between items-center'>
+				<div className='pt-4 border-t border-white/5 flex justify-between items-center'>
 					<div className='text-left'>
-						<span className='text-[10px] font-black text-slate-400 uppercase block'>
+						<span className='text-[10px] font-black text-hint uppercase block'>
 							Баланс
 						</span>
-						<span className='text-lg font-black text-red-800'>
+						<span className='text-lg font-black text-red-700'>
 							{user?.balance || 0} PTS
 						</span>
 					</div>
 					<button
 						onClick={() => navigate('/withdraw')}
-						className='text-[10px] font-black text-slate-900 uppercase bg-slate-50 px-4 py-2 rounded-xl border border-slate-100'
+						className='text-[10px] font-black text-main uppercase bg-secondary px-4 py-2 rounded-xl border border-white/5'
 					>
 						Вывод
 					</button>
 				</div>
 			</div>
 
-			{/* Табы */}
-			<div className='flex bg-white p-1.5 rounded-2xl border border-slate-100'>
+			{/* Табы (Исправлено: Темно-серый/Черный как в оригинале) */}
+			<div className='flex bg-main p-1.5 rounded-2xl border border-white/5 shadow-sm'>
 				<button
 					onClick={() => setSearchParams({ tab: 'resumes' })}
-					className={`flex-1 py-3 rounded-xl font-black text-xs uppercase tracking-widest transition-all ${activeTab === 'resumes' ? 'bg-slate-900 text-white shadow-xl' : 'text-slate-400'}`}
+					className={`flex-1 py-3 rounded-xl font-black text-xs uppercase tracking-widest transition-all ${activeTab === 'resumes' ? 'bg-[#111111] text-white shadow-xl' : 'text-hint'}`}
 				>
 					Мои Резюме
 				</button>
 				<button
 					onClick={() => setSearchParams({ tab: 'vacancies' })}
-					className={`flex-1 py-3 rounded-xl font-black text-xs uppercase tracking-widest transition-all ${activeTab === 'vacancies' ? 'bg-slate-900 text-white shadow-xl' : 'text-slate-400'}`}
+					className={`flex-1 py-3 rounded-xl font-black text-xs uppercase tracking-widest transition-all ${activeTab === 'vacancies' ? 'bg-[#111111] text-white shadow-xl' : 'text-hint'}`}
 				>
 					Мои Вакансии
 				</button>
 			</div>
 
-			{/* Контент */}
+			{/* Список объявлений */}
 			{(activeTab === 'resumes' ? resLoading : vacLoading) ? (
 				<div className='animate-pulse space-y-4'>
 					{[1, 2].map((i) => (
 						<div
 							key={i}
-							className='h-64 bg-white rounded-[2.5rem]'
+							className='h-64 bg-main rounded-[2.5rem]'
 						/>
 					))}
 				</div>
 			) : (
-				<div className='space-y-4 text-left'>
+				<div className='space-y-4'>
 					{(activeTab === 'resumes' ? resumes : vacancies).length >
 					0 ? (
 						(activeTab === 'resumes' ? resumes : vacancies).map(
@@ -1793,58 +1645,49 @@ const ProfilePage: React.FC<{ telegramId: number }> = ({ telegramId }) => {
 								),
 						)
 					) : (
-						<div className='py-20 text-center text-slate-300 font-bold uppercase text-[10px] tracking-widest'>
+						<div className='py-20 text-center text-hint font-bold uppercase text-[10px] tracking-widest'>
 							Здесь пока пусто
 						</div>
 					)}
 				</div>
 			)}
 
-			{/* Модалка Буста */}
+			{/* Модалка продвижения */}
 			{boostTarget && (
-				<div className='fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex items-end justify-center'>
+				<div className='fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-end justify-center'>
 					<div
 						className='absolute inset-0'
 						onClick={() => setBoostTarget(null)}
 					/>
-					<div className='w-full max-w-md bg-white rounded-t-[3rem] p-8 pb-12 space-y-6 animate-in slide-in-from-bottom duration-300 relative z-[101] mb-[70px] shadow-2xl'>
+					<div className='w-full max-w-md bg-main rounded-t-[3rem] p-8 pb-12 space-y-6 animate-in slide-in-from-bottom duration-300 relative z-[101] mb-[20px] shadow-2xl'>
 						<div className='text-center space-y-2'>
-							<div className='w-12 h-1.5 bg-slate-100 rounded-full mx-auto mb-4' />
-							<h3 className='text-2xl font-black text-slate-900'>
+							<div className='w-12 h-1.5 bg-secondary rounded-full mx-auto mb-4' />
+							<h3 className='text-2xl font-black text-main'>
 								Продвижение 🚀
 							</h3>
-							<p className='text-sm text-slate-500 font-medium'>
+							<p className='text-sm text-hint font-medium'>
 								Поднимите «
-								<span className='text-slate-900 font-bold'>
+								<span className='text-main font-bold'>
 									{boostTarget.name}
 								</span>
 								» в ТОП на 24 часа.
 							</p>
 						</div>
-						<div className='space-y-3'>
-							<button
-								disabled={isBoosting}
-								onClick={handleApplyBoost}
-								className='w-full py-5 bg-indigo-600 text-white rounded-2xl font-black uppercase tracking-widest shadow-xl active:scale-95 disabled:opacity-50'
-							>
-								{isBoosting
-									? 'Применяем...'
-									: 'Поднять за 400 баллов'}
-							</button>
-							<button
-								onClick={() => setBoostTarget(null)}
-								className='w-full py-2 text-slate-400 font-black uppercase text-[10px] tracking-widest'
-							>
-								Закрыть
-							</button>
-						</div>
+						<button
+							disabled={isBoosting}
+							onClick={handleApplyBoost}
+							className='w-full py-5 bg-[#111111] text-white rounded-2xl font-black uppercase tracking-widest active:scale-95'
+						>
+							{isBoosting
+								? 'Применяем...'
+								: 'Поднять за 400 баллов'}
+						</button>
 					</div>
 				</div>
 			)}
 		</div>
 	)
 }
-
 export const DetailRow = ({
 	icon,
 	label,
@@ -2797,7 +2640,6 @@ const AppContent: React.FC = () => {
 					<Route path='*' element={<Navigate to='/' replace />} />
 				</Routes>
 			</main>
-
 			{showNav && (
 				<nav className='fixed bottom-8 left-1/2 -translate-x-1/2 w-[92%] max-w-md z-50 animate-in slide-in-from-bottom-8 duration-700 delay-300 fill-mode-both'>
 					<div className='bg-secondary/80 backdrop-blur-3xl border border-white/10 rounded-[2.8rem] p-3 flex justify-between items-center shadow-[0_20px_50px_rgba(0,0,0,0.2)]'>
@@ -2818,11 +2660,13 @@ const AppContent: React.FC = () => {
 							<div className='absolute inset-0 bg-red-600 rounded-full blur-xl opacity-30 group-active:opacity-50 transition-all'></div>
 							<button
 								onClick={() => {
-									if (tg?.HapticFeedback)
+									if (tg?.HapticFeedback) {
 										tg.HapticFeedback.impactOccurred(
 											'heavy',
 										)
-									navigate('/create')
+									}
+									// ВМЕСТО navigate('/create') пишем:
+									setIsPlusOpen(true)
 								}}
 								className='relative w-16 h-16 bg-red-600 rounded-full flex items-center justify-center shadow-2xl text-white active:scale-90 transition-transform'
 							>
@@ -2845,7 +2689,6 @@ const AppContent: React.FC = () => {
 					</div>
 				</nav>
 			)}
-
 			<BottomSheet
 				isOpen={isPlusOpen}
 				onClose={() => setIsPlusOpen(false)}
@@ -2856,16 +2699,16 @@ const AppContent: React.FC = () => {
 						setIsPlusOpen(false)
 						navigate('/create', { state: { type: 'vac' } })
 					}}
-					className='w-full flex items-center gap-4 p-6 bg-slate-50 border border-slate-100 rounded-3xl active:bg-slate-100 transition-all'
+					className='w-full flex items-center gap-4 p-6 bg-secondary border border-white/5 rounded-3xl active:bg-white/5 transition-all'
 				>
-					<div className='w-14 h-14 bg-[#111111] text-white flex items-center justify-center rounded-2xl font-bold'>
+					<div className='w-14 h-14 bg-red-700 text-white flex items-center justify-center rounded-2xl font-bold'>
 						💼
 					</div>
 					<div className='text-left'>
-						<div className='font-black text-slate-900 text-lg leading-tight'>
+						<div className='font-black text-main text-lg leading-tight'>
 							Вакансия
 						</div>
-						<div className='text-[10px] text-slate-400 font-bold uppercase mt-1 tracking-widest'>
+						<div className='text-[10px] text-hint font-bold uppercase mt-1 tracking-widest'>
 							Поиск сотрудника
 						</div>
 					</div>
@@ -2875,16 +2718,16 @@ const AppContent: React.FC = () => {
 						setIsPlusOpen(false)
 						navigate('/create', { state: { type: 'res' } })
 					}}
-					className='w-full flex items-center gap-4 p-6 bg-slate-50 border border-slate-100 rounded-3xl active:bg-slate-100 transition-all'
+					className='w-full flex items-center gap-4 p-6 bg-secondary border border-white/5 rounded-3xl active:bg-white/5 transition-all'
 				>
-					<div className='w-14 h-14 bg-red-800 text-white flex items-center justify-center rounded-2xl font-bold'>
+					<div className='w-14 h-14 bg-main text-red-700 border border-white/5 flex items-center justify-center rounded-2xl font-bold'>
 						📄
 					</div>
 					<div className='text-left'>
-						<div className='font-black text-slate-900 text-lg leading-tight'>
+						<div className='font-black text-main text-lg leading-tight'>
 							Резюме
 						</div>
-						<div className='text-[10px] text-slate-400 font-bold uppercase mt-1 tracking-widest'>
+						<div className='text-[10px] text-hint font-bold uppercase mt-1 tracking-widest'>
 							Поиск работы
 						</div>
 					</div>
