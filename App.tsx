@@ -75,6 +75,7 @@ import {
 	useBoostVacancyMutation,
 	useBoostResumeMutation,
 } from './src/store/store'
+import { GeoPromoCard } from './src/pages/GoPromoCard'
 
 const tg = (window as any).Telegram?.WebApp
 
@@ -131,12 +132,14 @@ const ToastProvider: React.FC<{ children: React.ReactNode }> = ({
 
 export const LocationContext = React.createContext<{
 	location: { lat: number; lng: number } | null
-	requestLocation: () => Promise<void>
-	permissionStatus: PermissionState | 'prompt' | 'denied' | 'granted'
+	requestLocation: () => void
+	openSettings: () => void
+	isDenied: boolean
 }>({
 	location: null,
-	requestLocation: async () => {},
-	permissionStatus: 'prompt',
+	requestLocation: () => {},
+	openSettings: () => {},
+	isDenied: false,
 })
 
 const LocationProvider: React.FC<{ children: React.ReactNode }> = ({
@@ -146,113 +149,53 @@ const LocationProvider: React.FC<{ children: React.ReactNode }> = ({
 		lat: number
 		lng: number
 	} | null>(null)
-	const [permissionStatus, setPermissionStatus] = useState<
-		PermissionState | 'prompt' | 'denied' | 'granted'
-	>('prompt')
+	const [isDenied, setIsDenied] = useState(false)
 	const { showToast } = useToast()
 
-	const requestLocation = useCallback(async () => {
-		// 1. Проверка на HTTPS (обязательно для Geolocation API)
-		if (
-			window.location.protocol !== 'https:' &&
-			window.location.hostname !== 'localhost'
-		) {
-			showToast(
-				'Геолокация требует безопасного соединения (HTTPS)',
-				'error',
-			)
-			console.error('Геолокация заблокирована: нужен HTTPS')
+	const requestLocation = useCallback(() => {
+		// Проверка версии Telegram (LocationManager доступен с 6.9, но лучше 8.0+)
+		if (!tg.isVersionAtLeast('8.0') || !tg.LocationManager) {
+			showToast('Обновите Telegram для использования геолокации', 'error')
 			return
 		}
 
-		if (!navigator.geolocation) {
-			showToast('Геолокация не поддерживается вашим устройством', 'error')
-			return
+		const handleGetLocation = () => {
+			tg.LocationManager.getLocation((data: any) => {
+				if (data) {
+					setLocation({ lat: data.latitude, lng: data.longitude })
+					setIsDenied(false)
+					showToast('Местоположение определено!', 'success')
+				} else {
+					setIsDenied(true)
+					showToast('Доступ к геолокации отклонен', 'error')
+				}
+			})
 		}
 
-		console.log('Запрашиваю геолокацию...')
-		setPermissionStatus('prompt') // Визуальный сброс
-
-		navigator.geolocation.getCurrentPosition(
-			(position) => {
-				const coords = {
-					lat: position.coords.latitude,
-					lng: position.coords.longitude,
-				}
-				console.log('Успех:', coords)
-				setLocation(coords)
-				setPermissionStatus('granted')
-				showToast('Местоположение определено!', 'success')
-			},
-			(error) => {
-				console.warn('Ошибка геолокации:', error.code, error.message)
-
-				switch (error.code) {
-					case error.PERMISSION_DENIED:
-						setPermissionStatus('denied')
-						showToast(
-							'Доступ к GPS отклонен. Разрешите его в настройках Telegram',
-							'error',
-						)
-						break
-					case error.POSITION_UNAVAILABLE:
-						showToast(
-							'Информация о местоположении недоступна',
-							'error',
-						)
-						break
-					case error.TIMEOUT:
-						showToast('Время ожидания GPS истекло', 'error')
-						break
-					default:
-						showToast('Ошибка при поиске местоположения', 'error')
-				}
-			},
-			{
-				enableHighAccuracy: false, // Изменил на false для более быстрого поиска в помещениях
-				timeout: 15000, // Увеличил до 15 секунд
-				maximumAge: 30000, // Разрешил кеш 30 секунд
-			},
-		)
+		if (!tg.LocationManager.isInited) {
+			tg.LocationManager.init(() => handleGetLocation())
+		} else {
+			handleGetLocation()
+		}
 	}, [showToast])
+
+	const openSettings = useCallback(() => {
+		if (tg.isVersionAtLeast('8.0') && tg.LocationManager) {
+			if (tg.platform === 'ios' || tg.platform === 'macos') {
+				// Воркаунд для iOS
+				requestLocation()
+			} else {
+				tg.LocationManager.openSettings()
+			}
+		}
+	}, [requestLocation])
 
 	return (
 		<LocationContext.Provider
-			value={{ location, requestLocation, permissionStatus }}
+			value={{ location, requestLocation, openSettings, isDenied }}
 		>
 			{children}
 		</LocationContext.Provider>
-	)
-}
-
-const LocationBanner: React.FC = () => {
-	const { location, requestLocation, permissionStatus } =
-		useContext(LocationContext)
-
-	if (location || permissionStatus === 'denied') return null
-
-	return (
-		<div className='px-6 mb-6'>
-			<div className='bg-slate-50 border border-slate-100 p-4 rounded-3xl flex items-center gap-4'>
-				<div className='w-10 h-10 bg-white rounded-xl flex items-center justify-center shrink-0 shadow-sm'>
-					📍
-				</div>
-				<div className='flex-1 text-left'>
-					<h4 className='text-[11px] font-black text-slate-900 uppercase tracking-tight'>
-						Работа рядом
-					</h4>
-					<p className='text-[9px] font-medium text-slate-400'>
-						Разрешите доступ к гео
-					</p>
-				</div>
-				<button
-					onClick={requestLocation}
-					className='px-4 py-2 bg-slate-900 text-white rounded-xl text-[9px] font-black uppercase tracking-widest'
-				>
-					Разрешить
-				</button>
-			</div>
-		</div>
 	)
 }
 
@@ -618,7 +561,6 @@ const HomePage: React.FC<{ user: User | null }> = ({ user }) => {
 					<span className='text-red-700'>KG</span>
 				</div>
 			</header>
-
 			{/* Bento Action Cards */}
 			<div className='px-6 mt-6 space-y-4 text-left'>
 				<div
@@ -671,7 +613,6 @@ const HomePage: React.FC<{ user: User | null }> = ({ user }) => {
 					</div>
 				</div>
 			</div>
-
 			{/* Spheres Horizontal Scroll */}
 			<div className='overflow-x-auto no-scrollbar flex gap-4 px-6 mb-8 mt-10'>
 				{spheres.map((s) => (
@@ -689,8 +630,7 @@ const HomePage: React.FC<{ user: User | null }> = ({ user }) => {
 					</div>
 				))}
 			</div>
-
-			{/* Recommendations List */}
+			<GeoPromoCard />
 			<div className='px-6 space-y-5'>
 				<div className='flex justify-between items-center mb-2 px-1'>
 					<h3 className='text-xl font-black text-main tracking-tight uppercase text-xs tracking-[0.15em] opacity-60'>
@@ -792,11 +732,8 @@ const SearchPage: React.FC<{ telegramId: number }> = ({ telegramId }) => {
 	const navigate = useNavigate()
 	const location = useLocation()
 	const [searchParams, setSearchParams] = useSearchParams()
-	const {
-		location: loc,
-		permissionStatus,
-		requestLocation,
-	} = useContext(LocationContext)
+	const { location: loc } = useContext(LocationContext)
+
 	const s = location.state || {}
 
 	const [type, setType] = useState<'job' | 'worker'>(
