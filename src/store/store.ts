@@ -111,8 +111,8 @@ export const workKgApi = createApi({
 				body,
 				params: {
 					telegramId: tid,
-					userLatitude: body.lat,
-					userLongitude: body.lng,
+					userLatitude: body.userLatitude,
+					userLongitude: body.userLongitude,
 				},
 			}),
 			transformResponse: (response: { results: Vacancy[] }) =>
