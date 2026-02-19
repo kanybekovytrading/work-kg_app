@@ -105,16 +105,30 @@ export const workKgApi = createApi({
 		}),
 		// --- ПОИСК ---
 		searchVacancies: builder.query<Vacancy[], any>({
-			query: ({ tid, ...body }) => ({
-				url: '/bot/search/vacancies',
-				method: 'POST',
-				body,
-				params: {
+			query: (args) => {
+				const { tid, userLatitude, userLongitude, ...filters } = args
+
+				// Создаем базовые параметры только с ID
+				const queryParams: any = {
 					telegramId: tid,
-					userLatitude: body.userLatitude,
-					userLongitude: body.userLongitude,
-				},
-			}),
+				}
+
+				// Добавляем координаты ТОЛЬКО если это реально числа (не null и не undefined)
+				if (typeof userLatitude === 'number') {
+					queryParams.userLatitude = userLatitude
+				}
+				if (typeof userLongitude === 'number') {
+					queryParams.userLongitude = userLongitude
+				}
+
+				return {
+					url: '/bot/search/vacancies',
+					method: 'POST',
+					body: filters, // Здесь cityId, sphereId и т.д.
+					params: queryParams,
+				}
+			},
+			// Не забудьте исправить transformResponse, так как в Swagger нет поля .results
 			transformResponse: (response: { results: Vacancy[] }) =>
 				response.results,
 		}),

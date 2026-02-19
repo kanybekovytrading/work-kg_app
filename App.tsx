@@ -773,7 +773,7 @@ const SearchPage: React.FC<{ telegramId: number }> = ({ telegramId }) => {
 		subcategoryId,
 		query,
 		userLatitude: loc?.lat || null,
-		userLongtude: loc?.lng || null,
+		userLongitude: loc?.lng || null,
 	}
 
 	const { data: jobResults = [], isFetching: isJobFetching } =
