@@ -617,12 +617,6 @@ const HomePage: React.FC<{ user: User | null }> = ({ user }) => {
 					<span className='text-main'>WORK</span>
 					<span className='text-red-700'>KG</span>
 				</div>
-				<button
-					onClick={() => tg?.HapticFeedback?.impactOccurred('light')}
-					className='p-2.5 bg-secondary rounded-2xl active:scale-90 transition-all border border-white/5'
-				>
-					<Bell size={20} className='text-main' />
-				</button>
 			</header>
 
 			{/* Bento Action Cards */}
@@ -782,7 +776,7 @@ const HomePage: React.FC<{ user: User | null }> = ({ user }) => {
 										</span>
 									</div>
 									<span className='text-[9px] font-bold text-hint opacity-40 uppercase'>
-										{vacancy.date}
+										{formatDate(vacancy.createdAt)}
 									</span>
 								</div>
 							</div>
@@ -1183,24 +1177,46 @@ const DetailPage: React.FC<{ telegramId: number }> = ({ telegramId }) => {
 
 	const handleContactClick = (platform: 'whatsapp' | 'telegram') => {
 		if (!item) return
+
+		// Трекаем клик
 		trackContact({
 			type: type === 'worker' ? 'worker' : 'job',
 			id: item.id,
 			tid: telegramId,
 		})
+
 		showToast(`Переходим в ${platform}...`)
 
-		const phone = item.phone.replace(/\D/g, '')
-		const url =
-			platform === 'whatsapp'
-				? `https://wa.me/${phone}`
-				: `https://t.me/${(item.telegramUsername || item.userName || '').replace('@', '')}`
+		if (platform === 'whatsapp') {
+			// Проверяем наличие телефона, чтобы не было ошибки .replace на null
+			const rawPhone = item.phone || ''
+			const phone = rawPhone.replace(/\D/g, '')
 
-		if (tg)
-			platform === 'whatsapp'
-				? tg.openLink(url, { try_instant_view: false })
-				: tg.openTelegramLink(url)
-		else window.open(url, '_blank')
+			if (!phone) {
+				showToast('Номер телефона не указан', 'error')
+				return
+			}
+
+			const url = `https://wa.me/${phone}`
+			if (tg) tg.openLink(url, { try_instant_view: false })
+			else window.open(url, '_blank')
+		} else {
+			const username = item.telegramUsername.trim()
+
+			if (!username) {
+				showToast('Username не указан', 'error')
+				return
+			}
+
+			const url = `https://t.me/${username}`
+
+			// ВАЖНО: tg.openTelegramLink лучше подходит для t.me ссылок внутри приложения
+			if (tg) {
+				tg.openTelegramLink(url)
+			} else {
+				window.open(url, '_blank')
+			}
+		}
 	}
 
 	const open2GISRoute = () => {
