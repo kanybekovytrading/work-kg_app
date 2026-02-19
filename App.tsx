@@ -1039,7 +1039,7 @@ const SearchResultItem = ({ item, type, onClick }: any) => {
 					</div>
 
 					<div className='flex items-center gap-1 text-[10px] font-black text-red-600 text-left'>
-						<svg
+						{/* <svg
 							className='w-3 h-3'
 							fill='none'
 							stroke='currentColor'
@@ -1051,15 +1051,18 @@ const SearchResultItem = ({ item, type, onClick }: any) => {
 								strokeWidth='3'
 								d='M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z'
 							/>
-						</svg>
-						<span>
+						</svg> */}
+						{/* <span>
 							{type === 'job'
 								? (stats?.responseCount ?? 0)
 								: (stats?.invitationCount ?? 0)}
-						</span>
-						{type === 'job' && item.distanceKm !== undefined && (
-							<span className='ml-1 text-hint font-medium'>
-								• {Math.round(item.distanceKm)} км
+						</span> */}
+						{type === 'job' && item.distanceKm != null && (
+							<span className='ml-1 text-hint font-medium lowercase'>
+								•{' '}
+								{item.distanceKm < 1
+									? `${Math.round(item.distanceKm * 1000)} м от вас`
+									: `в ${Math.round(item.distanceKm)} км от вас`}
 							</span>
 						)}
 					</div>
