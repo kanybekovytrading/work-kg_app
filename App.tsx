@@ -1058,11 +1058,8 @@ const SearchResultItem = ({ item, type, onClick }: any) => {
 								: (stats?.invitationCount ?? 0)}
 						</span> */}
 						{type === 'job' && item.distanceKm != null && (
-							<span className='ml-1 text-hint font-medium lowercase'>
-								•{' '}
-								{item.distanceKm < 1
-									? `${Math.round(item.distanceKm * 1000)} м от вас`
-									: `в ${Math.round(item.distanceKm)} км от вас`}
+							<span className='ml-1 text-hint font-medium'>
+								• ~{Math.round(item.distanceKm)} км от вас
 							</span>
 						)}
 					</div>
