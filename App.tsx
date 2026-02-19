@@ -1201,6 +1201,8 @@ const DetailPage: React.FC<{ telegramId: number }> = ({ telegramId }) => {
 			if (tg) tg.openLink(url, { try_instant_view: false })
 			else window.open(url, '_blank')
 		} else {
+			// Логика для Telegram
+			// Очищаем юзернейм от @ и лишних пробелов
 			const username = item.telegramUsername.trim()
 
 			if (!username) {
@@ -1363,6 +1365,28 @@ const DetailPage: React.FC<{ telegramId: number }> = ({ telegramId }) => {
 						</div>
 					</section>
 
+					{item.media && item.media.length > 0 && (
+						<section className='space-y-4'>
+							<h4 className='text-[10px] font-black text-hint uppercase tracking-widest px-1'>
+								Галерея
+							</h4>
+							<div className='flex gap-3 overflow-x-auto no-scrollbar pb-2 px-1'>
+								{item.media.map((file: any, index: number) => (
+									<div
+										key={index}
+										onClick={() => setSelectedMedia(file)}
+										className='w-32 h-32 rounded-2xl overflow-hidden bg-secondary shrink-0 border border-white/5 active:scale-95 transition-transform cursor-pointer'
+									>
+										<img
+											src={file.fileUrl}
+											className='w-full h-full object-cover'
+											alt={`Media ${index}`}
+										/>
+									</div>
+								))}
+							</div>
+						</section>
+					)}
 					{/* ПОДРОБНОЕ ОПИСАНИЕ (Добавлено) */}
 					<section className='space-y-4'>
 						<h4 className='text-[10px] font-black text-hint uppercase tracking-widest px-1'>

@@ -8,6 +8,7 @@ import {
 } from '../../store/store'
 import { FormField } from '.'
 import { ElegantSelect } from '../../../App'
+import { formatPhoneKG } from '../../../constants'
 
 // Оригинальный стиль инпутов с поддержкой темы
 const inputClass =
@@ -51,6 +52,7 @@ export const ResumeForm: React.FC<Props> = ({
 			experience: 0,
 			gender: 'MALE',
 			description: '',
+			phone: '+996',
 		},
 	})
 
@@ -148,22 +150,41 @@ export const ResumeForm: React.FC<Props> = ({
 			</div>
 
 			{/* Пол */}
-			<Controller
-				name='gender'
-				control={control}
-				render={({ field }) => (
-					<ElegantSelect
-						placeholder=''
-						label='Пол'
-						value={field.value}
-						options={[
-							{ id: 'MALE', name: 'Мужской', icon: '👨' },
-							{ id: 'FEMALE', name: 'Женский', icon: '👩' },
-						]}
-						onChange={field.onChange}
+			<div className='grid grid-cols-2 gap-4'>
+				<Controller
+					name='gender'
+					control={control}
+					render={({ field }) => (
+						<ElegantSelect
+							placeholder=''
+							label='Пол'
+							value={field.value}
+							options={[
+								{ id: 'MALE', name: 'Мужской', icon: '👨' },
+								{ id: 'FEMALE', name: 'Женский', icon: '👩' },
+							]}
+							onChange={field.onChange}
+						/>
+					)}
+				/>
+				<FormField label='Телефон' error={errors.phone?.message}>
+					<Controller
+						name='phone'
+						control={control}
+						render={({ field }) => (
+							<input
+								{...field}
+								onChange={(e) =>
+									field.onChange(
+										formatPhoneKG(e.target.value),
+									)
+								}
+								className={inputClass}
+							/>
+						)}
 					/>
-				)}
-			/>
+				</FormField>
+			</div>
 
 			{/* Bento-блок выбора сферы (bg-secondary/40 для мягкого выделения) */}
 			<div className='space-y-6 p-6 bg-secondary/40 rounded-[2.5rem] border border-white/5 shadow-inner'>

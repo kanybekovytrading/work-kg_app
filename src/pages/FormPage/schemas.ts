@@ -34,6 +34,7 @@ export const resumeSchema = z.object({
 	age: z.coerce.number().min(14, 'Минимум 14 лет').max(100),
 	experience: z.coerce.number().default(0),
 	gender: z.enum(['MALE', 'FEMALE']),
+	phone: z.string().min(10, 'Введите корректный номер'),
 })
 
 export type VacancyFormData = z.infer<typeof vacancySchema>
