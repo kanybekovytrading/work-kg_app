@@ -323,43 +323,20 @@ export const ProfileDetail: React.FC<{ telegramId: number }> = ({
 
 				<div className='fixed bottom-0 left-0 right-0 p-6 bg-main/90 backdrop-blur-2xl border-t border-white/5 z-50 shadow-[0_-10px_40px_rgba(0,0,0,0.05)]'>
 					<div className='max-w-xl mx-auto'>
-						{isLocked ? (
-							<div className='flex flex-col gap-4 animate-in slide-in-from-bottom duration-500'>
-								<div className='text-center space-y-1'>
-									<p className='text-[10px] font-black text-red-600 uppercase tracking-[0.2em]'>
-										Контакты ограничены 🔒
-									</p>
-									<p className='text-[11px] font-bold text-hint'>
-										Оформите PRO подписку для доступа
-									</p>
-								</div>
-								<button
-									onClick={() => navigate('/subscription')}
-									className='h-16 bg-main text-main rounded-2xl font-black uppercase tracking-widest shadow-xl flex items-center justify-center gap-3 border-2 border-red-700 active:scale-95 transition-all'
-								>
-									<span>💎</span> Купить PRO Доступ
-								</button>
-							</div>
-						) : (
-							<div className='grid grid-cols-2 gap-3 animate-in fade-in zoom-in-95 duration-300'>
-								<button
-									onClick={() =>
-										handleContactClick('whatsapp')
-									}
-									className='h-16 bg-[#075e54] text-white rounded-2xl font-black uppercase tracking-widest shadow-xl active:scale-95 transition-all'
-								>
-									WhatsApp
-								</button>
-								<button
-									onClick={() =>
-										handleContactClick('telegram')
-									}
-									className='h-16 bg-red-700 text-white rounded-2xl font-black uppercase tracking-widest shadow-xl active:scale-95 transition-all'
-								>
-									Telegram
-								</button>
-							</div>
-						)}
+						<div className='grid grid-cols-2 gap-3 animate-in fade-in zoom-in-95 duration-300'>
+							<button
+								onClick={() => handleContactClick('whatsapp')}
+								className='h-16 bg-[#075e54] text-white rounded-2xl font-black uppercase tracking-widest shadow-xl active:scale-95 transition-all'
+							>
+								WhatsApp
+							</button>
+							<button
+								onClick={() => handleContactClick('telegram')}
+								className='h-16 bg-red-700 text-white rounded-2xl font-black uppercase tracking-widest shadow-xl active:scale-95 transition-all'
+							>
+								Telegram
+							</button>
+						</div>
 					</div>
 				</div>
 			</div>

@@ -20,21 +20,11 @@ import {
 	Search,
 	Plus,
 	Star,
-	Bell,
 	ChevronRight,
 	Zap,
 	Gamepad2,
 	Lock,
-	Eye,
-	MousePointer2,
-	Trophy,
-	Users,
-	Wallet,
-	Settings,
 	ArrowRight,
-	Filter,
-	CheckCircle2,
-	Briefcase,
 } from 'lucide-react'
 import { BANK_SERVICES, formatPhoneKG, formatDate } from './constants'
 import { User, Media, Vacancy, Resume } from './types'
@@ -71,7 +61,6 @@ import {
 	useTrackViewMutation,
 	useGetSubscriptionStatusQuery,
 	useGetReferralInfoQuery,
-	useCheckSocialTaskQuery,
 	useBoostVacancyMutation,
 	useBoostResumeMutation,
 } from './src/store/store'
@@ -525,7 +514,7 @@ const FormField: React.FC<{ label: string; children: React.ReactNode }> = ({
 	</div>
 )
 
-const HomePage: React.FC<{ user: User | null }> = ({ user }) => {
+const HomePage: React.FC<{ user: User | null }> = ({ user }: any) => {
 	const navigate = useNavigate()
 	const telegramId = user?.telegramId || 0
 	const { data: recommendations = [], isLoading } =
@@ -618,7 +607,12 @@ const HomePage: React.FC<{ user: User | null }> = ({ user }) => {
 				{spheres.map((s) => (
 					<div
 						key={s.id}
-						onClick={() => handleAction('/search', 'light')}
+						onClick={() =>
+							handleAction('/search', 'light', {
+								sphereId: s.id,
+								cityId: 1, // Берем город пользователя или 1 по дефолту
+							})
+						}
 						className='flex-shrink-0 flex flex-col items-center gap-3 cursor-pointer'
 					>
 						<div className='w-16 h-16 bg-secondary border border-white/5 rounded-[1.8rem] flex items-center justify-center text-2xl transition-all active:scale-90 shadow-sm'>
@@ -743,9 +737,9 @@ const SearchPage: React.FC<{ telegramId: number }> = ({ telegramId }) => {
 	const [cityId, setCityId] = useState(
 		() => Number(searchParams.get('cityId')) || 1,
 	)
+
 	const [sphereId, setSphereId] = useState<number | null>(
-		() =>
-			Number(searchParams.get('sphereId')) || s.initialSphere?.id || null,
+		() => Number(searchParams.get('sphereId')) || s.sphereId || null,
 	)
 	const [categoryId, setCategoryId] = useState<number | null>(
 		() => Number(searchParams.get('catId')) || null,

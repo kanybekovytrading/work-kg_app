@@ -42,7 +42,7 @@ export const workKgApi = createApi({
 			invalidatesTags: ['User'],
 		}),
 
-		// --- СПРАВОЧНИКИ (Кэш 1 час) ---
+		// --- СПРАВОЧНИКИ ---
 		getCities: builder.query<City[], number>({
 			query: (id) => `/cities/${id}`,
 			keepUnusedDataFor: 3600,
@@ -63,6 +63,42 @@ export const workKgApi = createApi({
 			keepUnusedDataFor: 3600,
 		}),
 
+		// --- ЗАГРУЗКА МЕДИА (BATCH ТОЛЬКО ДЛЯ ВАКАНСИЙ) ---
+		uploadVacancyMediaBatch: builder.mutation<
+			void,
+			{
+				vacancyId: number // ID вакансии
+				tid: number // Telegram ID
+				files: File[] // Массив файлов
+			}
+		>({
+			query: ({ vacancyId, tid, files }) => {
+				const formData = new FormData()
+				// Важно: имя поля 'files' должно совпадать с тем, что ждет бэкенд (List<MultipartFile> files)
+				files.forEach((file) => {
+					formData.append('files', file)
+				})
+
+				return {
+					// Строго по Swagger: /api/bot/vacancies/{vacancyId}/media/batch
+					url: `/bot/vacancies/${vacancyId}/media/batch`,
+					method: 'POST',
+					body: formData,
+					params: { telegramId: tid },
+				}
+			},
+			// Инвалидируем только вакансию
+			invalidatesTags: (result, error, { vacancyId }) => [
+				{ type: 'Vacancy', id: vacancyId },
+				'ProfileList',
+			],
+		}),
+
+		// Для резюме пока оставляем старый метод или создаем новый,
+		// если бэкенд поддерживает batch и для резюме - скажи, добавлю.
+		// Пока оставил uploadMediaMutation удаленным, как ты просил.
+
+		// --- ОСТАЛЬНЫЕ МЕТОДЫ (Без изменений) ---
 		updateVacancyStatus: builder.mutation<
 			void,
 			{ id: number; tid: number; isActive: boolean }
@@ -85,8 +121,6 @@ export const workKgApi = createApi({
 			}),
 			invalidatesTags: ['ProfileList', 'Resume'],
 		}),
-
-		// --- УДАЛЕНИЕ ---
 		deleteVacancy: builder.mutation<void, { id: number; tid: number }>({
 			query: ({ id, tid }) => ({
 				url: `/bot/vacancies/${id}`,
@@ -103,32 +137,22 @@ export const workKgApi = createApi({
 			}),
 			invalidatesTags: ['ProfileList'],
 		}),
-		// --- ПОИСК ---
 		searchVacancies: builder.query<Vacancy[], any>({
 			query: (args) => {
 				const { tid, userLatitude, userLongitude, ...filters } = args
-
-				// Создаем базовые параметры только с ID
-				const queryParams: any = {
-					telegramId: tid,
-				}
-
-				// Добавляем координаты ТОЛЬКО если это реально числа (не null и не undefined)
-				if (typeof userLatitude === 'number') {
+				const queryParams: any = { telegramId: tid }
+				if (typeof userLatitude === 'number')
 					queryParams.userLatitude = userLatitude
-				}
-				if (typeof userLongitude === 'number') {
+				if (typeof userLongitude === 'number')
 					queryParams.userLongitude = userLongitude
-				}
 
 				return {
 					url: '/bot/search/vacancies',
 					method: 'POST',
-					body: filters, // Здесь cityId, sphereId и т.д.
+					body: filters,
 					params: queryParams,
 				}
 			},
-			// Не забудьте исправить transformResponse, так как в Swagger нет поля .results
 			transformResponse: (response: { results: Vacancy[] }) =>
 				response.results,
 		}),
@@ -142,8 +166,6 @@ export const workKgApi = createApi({
 			transformResponse: (response: { results: Resume[] }) =>
 				response.results,
 		}),
-
-		// --- ДЕТАЛИ (ВАКАНСИИ И РЕЗЮМЕ) ---
 		getVacancyDetail: builder.query<
 			Vacancy,
 			{ id: number; tid: number; isProfile: boolean }
@@ -164,8 +186,6 @@ export const workKgApi = createApi({
 			}),
 			providesTags: (result, error, { id }) => [{ type: 'Resume', id }],
 		}),
-
-		// --- СОЗДАНИЕ И ОБНОВЛЕНИЕ ---
 		createVacancy: builder.mutation<Vacancy, { tid: number; data: any }>({
 			query: ({ tid, data }) => ({
 				url: '/bot/vacancies',
@@ -212,38 +232,6 @@ export const workKgApi = createApi({
 				{ type: 'Resume', id },
 			],
 		}),
-
-		// --- ЗАГРУЗКА МЕДИА ---
-		// Универсальная мутация для фото и видео
-		uploadMedia: builder.mutation<
-			void,
-			{
-				entity: 'vacancies' | 'resumes'
-				id: number
-				tid: number
-				file: File
-				mediaType: 'photo' | 'video'
-			}
-		>({
-			query: ({ entity, id, tid, file, mediaType }) => {
-				const formData = new FormData()
-				formData.append('file', file)
-				return {
-					url: `/bot/${entity}/${id}/media/${mediaType}`,
-					method: 'POST',
-					body: formData,
-					params: { telegramId: tid },
-					// fetchBaseQuery сам выставит Content-Type: multipart/form-data если тело FormData
-				}
-			},
-			invalidatesTags: (result, error, { entity, id }) => [
-				entity === 'vacancies'
-					? { type: 'Vacancy', id }
-					: { type: 'Resume', id },
-			],
-		}),
-
-		// --- ПРОФИЛЬ ---
 		getUserVacancies: builder.query<Vacancy[], number>({
 			query: (tid) => `/bot/vacancies/user/${tid}`,
 			providesTags: ['ProfileList'],
@@ -262,8 +250,6 @@ export const workKgApi = createApi({
 			}),
 			providesTags: ['Vacancy'],
 		}),
-
-		// --- СТАТИСТИКА И ТРЕКИНГ ---
 		getVacancyStats: builder.query<any, number>({
 			query: (id) => `/statistic/vacancies/${id}`,
 			providesTags: (result, error, id) => [{ type: 'Stats', id }],
@@ -293,8 +279,6 @@ export const workKgApi = createApi({
 			}),
 			invalidatesTags: (result, error, { id }) => [{ type: 'Stats', id }],
 		}),
-
-		// --- ПОДПИСКА, ПАРТНЕРКА И ДОСТУП ---
 		checkAccess: builder.query<AccessStatus, number>({
 			query: (tid) => `/bot/access/${tid}/check`,
 		}),
@@ -317,26 +301,17 @@ export const workKgApi = createApi({
 				url: '/bot/points/withdraw',
 				method: 'POST',
 				body: data,
-				headers: {
-					'X-Telegram-Id': tid.toString(),
-				},
-				// Правильный responseHandler
+				headers: { 'X-Telegram-Id': tid.toString() },
 				responseHandler: async (response) => {
-					// Если контента нет (204 No Content) или длина 0
 					if (
 						response.status === 204 ||
 						response.headers.get('content-length') === '0'
-					) {
+					)
 						return {}
-					}
-
 					const text = await response.text()
 					try {
-						// Пытаемся распарсить как JSON
 						return JSON.parse(text)
 					} catch {
-						// Если это просто строка (например "OK" или "Success"),
-						// возвращаем её как объект, чтобы не было ошибки парсинга
 						return { status: text || 'success' }
 					}
 				},
@@ -355,8 +330,6 @@ export const workKgApi = createApi({
 				}),
 			},
 		),
-
-		// --- БУСТЫ ---
 		boostVacancy: builder.mutation<void, { id: number; tid: number }>({
 			query: ({ id, tid }) => ({
 				url: `/bot/boost/vacancies/${id}/points`,
@@ -397,7 +370,6 @@ export const {
 	useUpdateVacancyMutation,
 	useCreateResumeMutation,
 	useUpdateResumeMutation,
-	useUploadMediaMutation,
 	useGetUserVacanciesQuery,
 	useGetUserResumesQuery,
 	useGetRecommendedVacanciesQuery,
@@ -418,6 +390,8 @@ export const {
 	useUpdateResumeStatusMutation,
 	useDeleteVacancyMutation,
 	useDeleteResumeMutation,
+	// Экспортируем новый хук
+	useUploadVacancyMediaBatchMutation,
 } = workKgApi
 
 export const store = configureStore({
