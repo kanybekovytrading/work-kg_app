@@ -2464,26 +2464,32 @@ const AppContent: React.FC = () => {
 		performRegistration()
 	}, [isUserError, telegramId, registerUser])
 
-	// Настройка Telegram WebApp (Full Screen & Back Button)
 	useEffect(() => {
 		if (!tg) return
 		tg.ready()
 		tg.expand()
 
-		// Включаем Fullscreen если доступно
+		// 1. Отключаем вертикальные свайпы (доступно с версии 7.7)
+		if (tg.isVersionAtLeast('7.7')) {
+			tg.disableVerticalSwipes()
+		}
+
+		// 2. Включаем Fullscreen (доступно с версии 8.0)
 		if (tg.isVersionAtLeast('8.0')) {
 			try {
 				tg.requestFullscreen()
-			} catch (e) {}
+			} catch (e) {
+				console.warn('Fullscreen failed', e)
+			}
 		}
 
-		// Защита от потери данных
+		// 3. Защита от потери данных (всегда полезно)
 		tg.enableClosingConfirmation()
 
-		// Синхронизация системных отступов
+		// 4. Синхронизация системных отступов
 		const syncSafeAreas = () => {
 			const root = document.documentElement
-			if (tg.safeAreaInset) {
+			if (tg.isVersionAtLeast('7.0') && tg.safeAreaInset) {
 				root.style.setProperty('--sat', `${tg.safeAreaInset.top}px`)
 				root.style.setProperty('--sab', `${tg.safeAreaInset.bottom}px`)
 			}
@@ -2491,10 +2497,10 @@ const AppContent: React.FC = () => {
 		tg.onEvent('safeAreaChanged', syncSafeAreas)
 		syncSafeAreas()
 
-		// Обработка темы
+		// 5. Обработка темы
 		const handleTheme = () => {
 			document.body.style.backgroundColor = tg.themeParams.bg_color
-			setHeader('secondary_bg_color')
+			if (tg.setHeaderColor) tg.setHeaderColor('secondary_bg_color')
 		}
 		tg.onEvent('themeChanged', handleTheme)
 		handleTheme()
@@ -2595,13 +2601,6 @@ const AppContent: React.FC = () => {
 	const showNav = ['/', '/search', '/profile', '/bonuses', '/games'].includes(
 		location.pathname,
 	)
-
-	const handleNav = (path: string) => {
-		if (tg?.HapticFeedback) {
-			tg.HapticFeedback.impactOccurred('light')
-		}
-		navigate(path)
-	}
 
 	// Если данные еще грузятся — показываем лоадер
 	if (isUserLoading)

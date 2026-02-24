@@ -46,7 +46,7 @@ const CreatePage: React.FC<{ telegramId: number }> = ({ telegramId }) => {
 
 		// Настройка основной кнопки
 		mainButton.setParams({
-			text: isVac ? 'ОПУБЛИКОВАТЬ ВАКАНСИЮ' : 'ОПУБЛИКОВАТЬ РЕЗЮМЕ',
+			text: isVac ? 'ОПУБЛИКОВАТЬ' : 'ОПУБЛИКОВАТЬ',
 			color: '#b91c1c', // Ваш фирменный красный
 			text_color: '#ffffff',
 			is_active: !isSubmitting,
