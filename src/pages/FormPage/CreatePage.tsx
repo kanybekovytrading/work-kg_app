@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import imageCompression from 'browser-image-compression'
 import { useToast } from '../../../App'
@@ -9,8 +9,10 @@ import {
 	useGetSpheresQuery,
 	useCreateVacancyMutation,
 	useCreateResumeMutation,
-	useUploadVacancyMediaBatchMutation,
+	useUploadMediaBatchMutation,
 } from '../../store/store'
+
+const tg = (window as any).Telegram?.WebApp
 
 const CreatePage: React.FC<{ telegramId: number }> = ({ telegramId }) => {
 	const navigate = useNavigate()
@@ -27,31 +29,83 @@ const CreatePage: React.FC<{ telegramId: number }> = ({ telegramId }) => {
 
 	const [createVacancy] = useCreateVacancyMutation()
 	const [createResume] = useCreateResumeMutation()
-	const [uploadVacancyBatch] = useUploadVacancyMediaBatchMutation()
+	const [uploadMediaBatch] = useUploadMediaBatchMutation()
 
 	const [isSubmitting, setIsSubmitting] = useState(false)
 	const [statusText, setStatusText] = useState('')
 	const [photos, setPhotos] = useState<File[]>([])
 	const [videos, setVideos] = useState<File[]>([])
 
-	// --- 1. ОБРАБОТКА ФАЙЛОВ (Только фото) ---
+	// Ссылка на функцию отправки формы (чтобы вызвать её из нативной кнопки)
+	const formRef = React.useRef<HTMLFormElement>(null)
+
+	// --- ИНТЕГРАЦИЯ С MAIN BUTTON (API v7.0+) ---
+	useEffect(() => {
+		const mainButton = tg.MainButton
+		const secondaryButton = tg.SecondaryButton
+
+		// Настройка основной кнопки
+		mainButton.setParams({
+			text: isVac ? 'ОПУБЛИКОВАТЬ ВАКАНСИЮ' : 'ОПУБЛИКОВАТЬ РЕЗЮМЕ',
+			color: '#b91c1c', // Ваш фирменный красный
+			text_color: '#ffffff',
+			is_active: !isSubmitting,
+			is_visible: true,
+		})
+
+		const onMainButtonClick = () => {
+			// Триггерим отправку формы через DOM (так проще всего связать с нативной кнопкой)
+			if (formRef.current) {
+				formRef.current.requestSubmit()
+				tg.HapticFeedback.impactOccurred('medium')
+			}
+		}
+
+		mainButton.onClick(onMainButtonClick)
+
+		// Настройка вторичной кнопки (Отмена)
+		if (tg.isVersionAtLeast('7.0')) {
+			secondaryButton
+				.setParams({
+					text: 'ОТМЕНА',
+					is_visible: true,
+					color: tg.themeParams.secondary_bg_color,
+					text_color: tg.themeParams.text_color,
+				})
+				.onClick(() => navigate(-1))
+		}
+
+		return () => {
+			mainButton.offClick(onMainButtonClick)
+			mainButton.hide()
+			secondaryButton.hide()
+		}
+	}, [isSubmitting, isVac, navigate])
+
+	// --- УПРАВЛЕНИЕ ЛОАДЕРОМ В КНОПКЕ ---
+	useEffect(() => {
+		if (isSubmitting) {
+			tg.MainButton.showProgress()
+			tg.enableClosingConfirmation() // Запрещаем закрытие при загрузке
+		} else {
+			tg.MainButton.hideProgress()
+			tg.disableClosingConfirmation()
+		}
+	}, [isSubmitting])
+
 	const processFiles = async (
 		originalPhotos: File[],
 		originalVideos: File[],
 	) => {
 		const processedPhotos: File[] = []
-
-		// Сжимаем ФОТО, чтобы они не весили по 10Мб
 		if (originalPhotos.length > 0) {
 			setStatusText('Оптимизация фото...')
 			for (const file of originalPhotos) {
 				try {
-					// Если фото > 1Мб, сжимаем
 					if (file.size > 1024 * 1024) {
 						const compressed = await imageCompression(file, {
-							maxSizeMB: 1,
+							maxSizeMB: 0.8,
 							maxWidthOrHeight: 1280,
-							useWebWorker: true,
 						})
 						processedPhotos.push(
 							new File([compressed], file.name, {
@@ -66,17 +120,15 @@ const CreatePage: React.FC<{ telegramId: number }> = ({ telegramId }) => {
 				}
 			}
 		}
-
-		// Видео не трогаем, отправляем оригиналы (самый стабильный путь для ТГ)
 		return { processedPhotos, processedVideos: originalVideos }
 	}
 
 	const handleCreate = async (formData: any) => {
+		if (isSubmitting) return
 		setIsSubmitting(true)
-		setStatusText('Создание записи...')
+		setStatusText('Создание...')
 
 		try {
-			// 1. Создаем саму запись
 			const res = isVac
 				? await createVacancy({
 						tid: telegramId,
@@ -87,28 +139,28 @@ const CreatePage: React.FC<{ telegramId: number }> = ({ telegramId }) => {
 						data: formData,
 					}).unwrap()
 
-			// 2. Готовим файлы (сжимаем только фото)
 			const { processedPhotos, processedVideos } = await processFiles(
 				photos,
 				videos,
 			)
 			const finalFiles = [...processedPhotos, ...processedVideos]
 
-			// 3. Загружаем всё пачкой
 			if (finalFiles.length > 0) {
-				setStatusText('Загрузка медиа на сервер...')
-				await uploadVacancyBatch({
-					vacancyId: res.id,
+				setStatusText('Загрузка медиа...')
+				await uploadMediaBatch({
+					entity: isVac ? 'vacancies' : 'resumes',
+					id: res.id,
 					tid: telegramId,
 					files: finalFiles,
 				}).unwrap()
 			}
 
+			tg.HapticFeedback.notificationOccurred('success')
 			showToast('Успешно опубликовано! 🚀')
 			navigate('/profile')
 		} catch (e) {
-			console.error(e)
-			showToast('Ошибка. Проверьте размер файлов или интернет', 'error')
+			tg.HapticFeedback.notificationOccurred('error')
+			showToast('Ошибка при сохранении', 'error')
 		} finally {
 			setIsSubmitting(false)
 		}
@@ -116,22 +168,23 @@ const CreatePage: React.FC<{ telegramId: number }> = ({ telegramId }) => {
 
 	if (isStaticLoading || isSpheresLoading) {
 		return (
-			<div className='min-h-screen flex items-center justify-center bg-white'>
-				<div className='w-10 h-10 border-[3px] border-slate-900 border-t-transparent rounded-full animate-spin' />
+			<div className='min-h-screen flex items-center justify-center bg-main'>
+				<div className='w-10 h-10 border-4 border-red-700 border-t-transparent rounded-full animate-spin' />
 			</div>
 		)
 	}
 
 	return (
-		<div className='bg-white min-h-screen pb-10'>
-			<header className='p-6 pt-12 flex items-center gap-4 sticky top-0 bg-white/90 backdrop-blur-md z-40 border-b'>
+		<div className='bg-main min-h-screen pb-32 animate-in fade-in'>
+			{/* Header адаптированный под Safe Area */}
+			<header className='p-6 pt-[calc(env(safe-area-inset-top)+1rem)] flex items-center gap-4 sticky top-0 bg-main/90 backdrop-blur-md z-40 border-b border-white/5'>
 				<button
 					onClick={() => navigate(-1)}
-					className='w-10 h-10 bg-slate-100 rounded-xl flex items-center justify-center active:scale-90 transition-transform'
+					className='w-10 h-10 bg-secondary rounded-xl flex items-center justify-center text-main'
 				>
 					←
 				</button>
-				<h2 className='text-2xl font-black text-main'>
+				<h2 className='text-2xl font-black text-main leading-tight'>
 					{isVac ? 'Новая вакансия' : 'Новое резюме'}
 				</h2>
 			</header>
@@ -139,11 +192,14 @@ const CreatePage: React.FC<{ telegramId: number }> = ({ telegramId }) => {
 			<div className='p-6'>
 				{isVac ? (
 					<VacancyForm
+						formRef={formRef} // Передаем реф
 						telegramId={telegramId}
 						cities={cities}
 						spheres={spheres}
 						onSubmit={handleCreate}
 						onMediaChange={(p, v) => {
+							if (p.length > photos.length)
+								tg.HapticFeedback.selectionChanged()
 							setPhotos(p)
 							setVideos(v)
 						}}
@@ -151,11 +207,14 @@ const CreatePage: React.FC<{ telegramId: number }> = ({ telegramId }) => {
 					/>
 				) : (
 					<ResumeForm
+						formRef={formRef}
 						telegramId={telegramId}
 						cities={cities}
 						spheres={spheres}
 						onSubmit={handleCreate}
 						onMediaChange={(p, v) => {
+							if (p.length > photos.length)
+								tg.HapticFeedback.selectionChanged()
 							setPhotos(p)
 							setVideos(v)
 						}}
@@ -163,43 +222,17 @@ const CreatePage: React.FC<{ telegramId: number }> = ({ telegramId }) => {
 					/>
 				)}
 
-				{/* Лоадер для пользователя */}
+				{/* Кастомный оверлей статуса (теперь выглядит более системно) */}
 				{isSubmitting && (
-					<div className='fixed inset-0 z-[100] flex items-center justify-center p-6'>
-						{/* Задний фон с глубоким размытием */}
-						<div className='absolute inset-0 bg-slate-950/60 backdrop-blur-xl animate-in fade-in duration-500' />
-
-						{/* Карточка лоадера */}
-						<div className='relative bg-white/10 border border-white/20 p-8 rounded-[2.5rem] shadow-2xl flex flex-col items-center w-full max-w-[320px] overflow-hidden animate-in zoom-in-95 duration-300'>
-							{/* Декоративное свечение на фоне */}
-							<div className='absolute -top-10 -left-10 w-32 h-32 bg-main/30 rounded-full blur-3xl animate-pulse' />
-							<div className='absolute -bottom-10 -right-10 w-32 h-32 bg-blue-500/20 rounded-full blur-3xl animate-pulse delay-700' />
-
-							{/* Кастомный Spinner */}
-							<div className='relative w-20 h-20 mb-8'>
-								{/* Внешнее кольцо */}
-								<div className='absolute inset-0 border-4 border-white/10 rounded-full'></div>
-								{/* Бегущее кольцо */}
-								<div className='absolute inset-0 border-4 border-t-white border-r-transparent border-b-transparent border-l-transparent rounded-full animate-spin'></div>
-								{/* Центральная точка с пульсацией */}
-								<div className='absolute inset-[35%] bg-white rounded-full animate-pulse shadow-[0_0_15px_rgba(255,255,255,0.8)]'></div>
+					<div className='fixed inset-0 z-[200] flex items-center justify-center p-6 bg-black/60 backdrop-blur-sm animate-in fade-in'>
+						<div className='bg-main border border-white/10 p-8 rounded-[2.5rem] shadow-2xl flex flex-col items-center w-full max-w-[280px]'>
+							<div className='w-16 h-16 mb-6 relative'>
+								<div className='absolute inset-0 border-4 border-secondary rounded-full'></div>
+								<div className='absolute inset-0 border-4 border-t-red-700 rounded-full animate-spin'></div>
 							</div>
-
-							{/* Текстовый блок */}
-							<div className='space-y-3 text-center relative z-10'>
-								<h3 className='text-white text-xl font-black tracking-tight leading-tight uppercase italic'>
-									{statusText}
-								</h3>
-								<div className='flex justify-center gap-1'>
-									<span className='w-1.5 h-1.5 bg-white/40 rounded-full animate-bounce [animation-delay:-0.3s]'></span>
-									<span className='w-1.5 h-1.5 bg-white/40 rounded-full animate-bounce [animation-delay:-0.15s]'></span>
-									<span className='w-1.5 h-1.5 bg-white/40 rounded-full animate-bounce'></span>
-								</div>
-								<p className='text-white/60 text-sm font-medium leading-relaxed px-4'>
-									Оптимизируем данные для моментальной
-									загрузки. Пожалуйста, не закрывайте.
-								</p>
-							</div>
+							<h3 className='text-main text-lg font-black uppercase italic tracking-tighter'>
+								{statusText}
+							</h3>
 						</div>
 					</div>
 				)}

@@ -9,6 +9,8 @@ import {
 import { FormField } from '.'
 import { AddressAutocomplete2GIS, ElegantSelect } from '../../../App'
 
+const tg = (window as any).Telegram?.WebApp
+
 interface BaseEntity {
 	id: number
 	name: string
@@ -26,9 +28,9 @@ interface Props {
 	cities: BaseEntity[]
 	spheres: Sphere[]
 	telegramId: number
+	formRef: React.RefObject<HTMLFormElement>
 }
 
-// Оригинальный стиль инпутов с переменными темы
 const inputClass =
 	'w-full bg-secondary border border-white/5 h-14 px-6 rounded-2xl text-sm font-bold focus:outline-none ring-4 ring-transparent focus:ring-red-500/10 transition-all placeholder:text-hint/40 text-main shadow-sm'
 
@@ -40,72 +42,145 @@ export const VacancyForm: React.FC<Props> = ({
 	cities,
 	spheres,
 	telegramId,
+	formRef,
 }) => {
-	const defaultValues: VacancyFormData = {
-		cityId: 1,
-		sphereId: 0,
-		categoryId: 0,
-		subcategoryId: 0,
-		minAge: 0,
-		maxAge: 0,
-		preferredGender: 'ANY',
-		phone: '+996',
-		experienceInYear: 0,
-		salary: '',
-		schedule: '',
-		companyName: '',
-		title: '',
-		description: '',
-		address: null,
-		latitude: null,
-		longitude: null,
-	}
-
 	const {
 		control,
 		handleSubmit,
 		watch,
 		setValue,
 		reset,
-		formState: { errors },
+		formState: { errors, isValid },
 	} = useForm({
 		resolver: zodResolver(vacancySchema),
-		defaultValues: {
-			...defaultValues,
-			...(initialData || {}),
-		} as VacancyFormData,
+		mode: 'onChange', // Чтобы MainButton знала статус валидации
+		defaultValues: (initialData as VacancyFormData) || {
+			cityId: 1,
+			sphereId: 0,
+			categoryId: 0,
+			subcategoryId: 0,
+			minAge: 0,
+			maxAge: 0,
+			preferredGender: 'ANY',
+			phone: '+996',
+			experienceInYear: 0,
+			salary: '',
+			schedule: '',
+			companyName: '',
+			title: '',
+			description: '',
+			address: null,
+			latitude: null,
+			longitude: null,
+		},
 	})
 
 	const [selectedPhotos, setSelectedPhotos] = useState<File[]>([])
 	const [selectedVideos, setSelectedVideos] = useState<File[]>([])
 
+	const allValues = watch()
 	const selectedSphere = watch('sphereId')
 	const selectedCategory = watch('categoryId')
 
-	// RTK Query для динамических списков
+	// --- 1. РАБОТА С ЧЕРНОВИКАМИ (CloudStorage) ---
+	useEffect(() => {
+		// При монтировании проверяем облако на наличие черновика
+		if (!initialData && tg.CloudStorage) {
+			tg.CloudStorage.getItem(
+				'vacancy_draft',
+				(err: any, value: string) => {
+					if (value) {
+						try {
+							const draft = JSON.parse(value)
+							reset(draft)
+						} catch (e) {
+							console.error('Draft error', e)
+						}
+					}
+				},
+			)
+		}
+	}, [])
+
+	useEffect(() => {
+		// Сохраняем черновик при каждом изменении (кроме режима редактирования)
+		if (!initialData && !loading) {
+			const timer = setTimeout(() => {
+				tg.CloudStorage.setItem(
+					'vacancy_draft',
+					JSON.stringify(allValues),
+				)
+			}, 1000)
+			return () => clearTimeout(timer)
+		}
+	}, [allValues, initialData])
+
+	// --- 2. УПРАВЛЕНИЕ MAIN BUTTON ---
+	useEffect(() => {
+		const mainButton = tg.MainButton
+
+		if (loading) {
+			mainButton.showProgress()
+			mainButton.disable()
+		} else {
+			mainButton.hideProgress()
+			mainButton.setParams({
+				text: initialData ? 'СОХРАНИТЬ ИЗМЕНЕНИЯ' : 'ОПУБЛИКОВАТЬ',
+				color: '#b91c1c',
+				text_color: '#ffffff',
+				is_visible: true,
+				is_active: true,
+			})
+		}
+
+		const handleMainClick = () => {
+			if (isValid) {
+				handleSubmit(onSubmit)()
+			} else {
+				tg.HapticFeedback.notificationOccurred('error')
+				tg.showAlert('Пожалуйста, заполните все обязательные поля')
+			}
+		}
+
+		mainButton.onClick(handleMainClick)
+		return () => {
+			mainButton.offClick(handleMainClick)
+			mainButton.hide()
+		}
+	}, [loading, isValid, handleSubmit, onSubmit, initialData])
+
+	// --- 3. ДИНАМИЧЕСКИЕ ДАННЫЕ ---
 	const { data: categories = [], isFetching: isCatLoading } =
 		useGetCategoriesQuery(
 			{ tid: telegramId, sid: selectedSphere },
-			{ skip: selectedSphere === 0 },
+			{ skip: !selectedSphere },
 		)
-
 	const { data: subcategories = [], isFetching: isSubCatLoading } =
 		useGetSubcategoriesQuery(
 			{ tid: telegramId, cid: selectedCategory },
-			{ skip: selectedCategory === 0 },
+			{ skip: !selectedCategory },
 		)
-
-	useEffect(() => {
-		if (initialData) reset(initialData)
-	}, [initialData, reset])
 
 	useEffect(() => {
 		onMediaChange(selectedPhotos, selectedVideos)
 	}, [selectedPhotos, selectedVideos, onMediaChange])
 
+	// Хендлер удаления медиа
+	const removeMedia = (index: number, type: 'photo' | 'video') => {
+		tg.HapticFeedback.impactOccurred('light')
+		if (type === 'photo') {
+			setSelectedPhotos((prev) => prev.filter((_, i) => i !== index))
+		} else {
+			setSelectedVideos((prev) => prev.filter((_, i) => i !== index))
+		}
+	}
+
 	return (
-		<form onSubmit={handleSubmit(onSubmit)} className='space-y-6'>
-			{/* Заголовок */}
+		<form
+			ref={formRef}
+			onSubmit={handleSubmit(onSubmit)}
+			className='space-y-6 pb-20'
+		>
 			<FormField label='Название вакансии' error={errors.title?.message}>
 				<Controller
 					name='title'
@@ -120,7 +195,6 @@ export const VacancyForm: React.FC<Props> = ({
 				/>
 			</FormField>
 
-			{/* Возраст */}
 			<div className='grid grid-cols-2 gap-4'>
 				<FormField label='Мин. возраст' error={errors.minAge?.message}>
 					<Controller
@@ -164,7 +238,6 @@ export const VacancyForm: React.FC<Props> = ({
 				</FormField>
 			</div>
 
-			{/* Пол */}
 			<Controller
 				name='preferredGender'
 				control={control}
@@ -177,13 +250,15 @@ export const VacancyForm: React.FC<Props> = ({
 							{ id: 'MALE', name: 'Мужской', icon: '👨' },
 							{ id: 'FEMALE', name: 'Женский', icon: '👩' },
 						]}
-						onChange={field.onChange}
+						onChange={(val) => {
+							tg.HapticFeedback.selectionChanged()
+							field.onChange(val)
+						}}
 						placeholder=''
 					/>
 				)}
 			/>
 
-			{/* Блок селекторов (Bento) */}
 			<div className='space-y-6 p-6 bg-secondary/40 rounded-[2.5rem] border border-white/5 shadow-inner'>
 				<Controller
 					name='cityId'
@@ -207,6 +282,7 @@ export const VacancyForm: React.FC<Props> = ({
 							value={field.value}
 							options={spheres}
 							onChange={(val) => {
+								tg.HapticFeedback.selectionChanged()
 								field.onChange(val)
 								setValue('categoryId', 0)
 								setValue('subcategoryId', 0)
@@ -227,6 +303,7 @@ export const VacancyForm: React.FC<Props> = ({
 									value={field.value}
 									options={categories}
 									onChange={(val) => {
+										tg.HapticFeedback.selectionChanged()
 										field.onChange(val)
 										setValue('subcategoryId', 0)
 									}}
@@ -266,7 +343,7 @@ export const VacancyForm: React.FC<Props> = ({
 				)}
 			</div>
 
-			{/* Медиа */}
+			{/* Медиа Блок с превью */}
 			<div className='space-y-4'>
 				<label className='block text-[10px] font-black text-hint uppercase tracking-widest ml-1'>
 					Фото и Видео
@@ -278,13 +355,15 @@ export const VacancyForm: React.FC<Props> = ({
 							multiple
 							accept='image/*'
 							className='hidden'
-							onChange={(e) =>
-								e.target.files &&
-								setSelectedPhotos([
-									...selectedPhotos,
-									...Array.from(e.target.files),
-								])
-							}
+							onChange={(e) => {
+								if (e.target.files) {
+									tg.HapticFeedback.impactOccurred('medium')
+									setSelectedPhotos([
+										...selectedPhotos,
+										...Array.from(e.target.files),
+									])
+								}
+							}}
 						/>
 						<span className='text-[10px] font-black uppercase'>
 							+ Фото ({selectedPhotos.length})
@@ -296,22 +375,61 @@ export const VacancyForm: React.FC<Props> = ({
 							multiple
 							accept='video/*'
 							className='hidden'
-							onChange={(e) =>
-								e.target.files &&
-								setSelectedVideos([
-									...selectedVideos,
-									...Array.from(e.target.files),
-								])
-							}
+							onChange={(e) => {
+								if (e.target.files) {
+									tg.HapticFeedback.impactOccurred('medium')
+									setSelectedVideos([
+										...selectedVideos,
+										...Array.from(e.target.files),
+									])
+								}
+							}}
 						/>
 						<span className='text-[10px] font-black uppercase'>
 							+ Видео ({selectedVideos.length})
 						</span>
 					</label>
 				</div>
+
+				{/* Превью файлов */}
+				<div className='flex gap-3 overflow-x-auto no-scrollbar py-2'>
+					{selectedPhotos.map((file, i) => (
+						<div
+							key={i}
+							className='relative shrink-0 w-20 h-20 rounded-2xl overflow-hidden border border-white/10'
+						>
+							<img
+								src={URL.createObjectURL(file)}
+								className='w-full h-full object-cover'
+								alt=''
+							/>
+							<button
+								onClick={() => removeMedia(i, 'photo')}
+								className='absolute top-1 right-1 w-6 h-6 bg-red-600 text-white rounded-full flex items-center justify-center font-bold'
+							>
+								×
+							</button>
+						</div>
+					))}
+					{selectedVideos.map((file, i) => (
+						<div
+							key={i}
+							className='relative shrink-0 w-20 h-20 rounded-2xl bg-black border border-white/10 flex items-center justify-center'
+						>
+							<span className='text-xs text-white font-bold'>
+								VIDEO
+							</span>
+							<button
+								onClick={() => removeMedia(i, 'video')}
+								className='absolute top-1 right-1 w-6 h-6 bg-red-600 text-white rounded-full flex items-center justify-center font-bold'
+							>
+								×
+							</button>
+						</div>
+					))}
+				</div>
 			</div>
 
-			{/* Зарплата и Опыт */}
 			<div className='grid grid-cols-2 gap-4'>
 				<FormField label='Зарплата' error={errors.salary?.message}>
 					<Controller
@@ -352,7 +470,6 @@ export const VacancyForm: React.FC<Props> = ({
 				</FormField>
 			</div>
 
-			{/* График и Компания */}
 			<div className='grid grid-cols-2 gap-4'>
 				<FormField label='График' error={errors.schedule?.message}>
 					<Controller
@@ -382,7 +499,6 @@ export const VacancyForm: React.FC<Props> = ({
 				</FormField>
 			</div>
 
-			{/* Адрес */}
 			<Controller
 				name='address'
 				control={control}
@@ -390,6 +506,7 @@ export const VacancyForm: React.FC<Props> = ({
 					<AddressAutocomplete2GIS
 						value={field.value || ''}
 						onChange={(d) => {
+							tg.HapticFeedback.selectionChanged()
 							setValue('address', d.address)
 							setValue('latitude', d.lat)
 							setValue('longitude', d.lng)
@@ -398,7 +515,6 @@ export const VacancyForm: React.FC<Props> = ({
 				)}
 			/>
 
-			{/* Телефон */}
 			<FormField label='Телефон' error={errors.phone?.message}>
 				<Controller
 					name='phone'
@@ -415,7 +531,6 @@ export const VacancyForm: React.FC<Props> = ({
 				/>
 			</FormField>
 
-			{/* Описание */}
 			<FormField label='Описание' error={errors.description?.message}>
 				<Controller
 					name='description'
@@ -430,18 +545,8 @@ export const VacancyForm: React.FC<Props> = ({
 				/>
 			</FormField>
 
-			{/* Кнопка отправки */}
-			<button
-				type='submit'
-				disabled={loading}
-				className='w-full py-6 bg-[#111111] text-white rounded-[2rem] font-black uppercase text-xs tracking-widest shadow-xl active:scale-[0.98] transition-all'
-			>
-				{loading
-					? 'Загрузка...'
-					: initialData
-						? 'Сохранить изменения'
-						: 'Опубликовать'}
-			</button>
+			{/* HTML кнопка скрыта, так как мы используем MainButton, но оставлена для корректной работы formRef.requestSubmit() */}
+			<button type='submit' className='hidden' />
 		</form>
 	)
 }

@@ -64,32 +64,32 @@ export const workKgApi = createApi({
 		}),
 
 		// --- ЗАГРУЗКА МЕДИА (BATCH ТОЛЬКО ДЛЯ ВАКАНСИЙ) ---
-		uploadVacancyMediaBatch: builder.mutation<
+		uploadMediaBatch: builder.mutation<
 			void,
 			{
-				vacancyId: number // ID вакансии
-				tid: number // Telegram ID
-				files: File[] // Массив файлов
+				entity: 'vacancies' | 'resumes' // Добавили выбор сущности
+				id: number
+				tid: number
+				files: File[]
 			}
 		>({
-			query: ({ vacancyId, tid, files }) => {
+			query: ({ entity, id, tid, files }) => {
 				const formData = new FormData()
-				// Важно: имя поля 'files' должно совпадать с тем, что ждет бэкенд (List<MultipartFile> files)
 				files.forEach((file) => {
 					formData.append('files', file)
 				})
 
 				return {
-					// Строго по Swagger: /api/bot/vacancies/{vacancyId}/media/batch
-					url: `/bot/vacancies/${vacancyId}/media/batch`,
+					// Динамический URL: /bot/vacancies/... или /bot/resumes/...
+					url: `/bot/${entity}/${id}/media/batch`,
 					method: 'POST',
 					body: formData,
 					params: { telegramId: tid },
 				}
 			},
-			// Инвалидируем только вакансию
-			invalidatesTags: (result, error, { vacancyId }) => [
-				{ type: 'Vacancy', id: vacancyId },
+			// Умная инвалидация кэша в зависимости от того, что обновляли
+			invalidatesTags: (result, error, { entity, id }) => [
+				{ type: entity === 'vacancies' ? 'Vacancy' : 'Resume', id },
 				'ProfileList',
 			],
 		}),
@@ -391,7 +391,7 @@ export const {
 	useDeleteVacancyMutation,
 	useDeleteResumeMutation,
 	// Экспортируем новый хук
-	useUploadVacancyMediaBatchMutation,
+	useUploadMediaBatchMutation,
 } = workKgApi
 
 export const store = configureStore({
