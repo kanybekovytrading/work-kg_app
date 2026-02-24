@@ -6,33 +6,53 @@
 			name="viewport"
 			content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"
 		/>
-		<title>FastJob KG</title>
-		<script src="https://cdn.tailwindcss.com"></script>
+		<title>Work KG</title>
+
+		<!-- Подключаем скрипт ТГ первым делом -->
 		<script src="https://telegram.org/js/telegram-web-app.js"></script>
+		<script src="https://cdn.tailwindcss.com"></script>
+
 		<link
-			href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap"
+			href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap"
 			rel="stylesheet"
 		/>
+
 		<style>
 			:root {
-				/* Дефолтные значения на случай запуска вне ТГ */
-				--tg-bg-color: #fcfcfc;
-				--tg-secondary-bg-color: #f1f1f1;
-				--tg-text-color: #111111;
-				--tg-hint-color: #999999;
-				--tg-link-color: #b91c1c;
-				--tg-button-color: #b91c1c;
-				--tg-button-text-color: #ffffff;
+				/* Эти переменные будут перетерты скриптом Telegram WebApp */
+				--tg-bg-color: #ffffff;
+				--tg-secondary-bg-color: #f4f4f5;
+				--tg-text-color: #000000;
+				--tg-hint-color: #71717a;
+
+				/* Динамические отступы (Safe Areas) */
+				--sat: env(safe-area-inset-top);
+				--sab: env(safe-area-inset-bottom);
+				--sar: env(safe-area-inset-right);
+				--sal: env(safe-area-inset-left);
+			}
+
+			* {
+				box-sizing: border-box;
+				/* Убираем синее выделение при нажатии на мобилках */
+				-webkit-tap-highlight-color: transparent;
 			}
 
 			body {
 				font-family: 'Inter', sans-serif;
-				-webkit-tap-highlight-color: transparent;
 				background-color: var(--tg-bg-color);
 				color: var(--tg-text-color);
-				transition:
-					background-color 0.2s ease,
-					color 0.2s ease;
+				margin: 0;
+				padding: 0;
+				width: 100%;
+				min-height: 100vh;
+
+				/* Делаем как в нативном приложении */
+				overflow-x: hidden;
+				-webkit-user-select: none; /* Запрет выделения текста */
+				user-select: none;
+
+				/* Блокируем стандартный скролл-эффект "оттягивания" всей страницы */
 				overscroll-behavior-y: none;
 			}
 
@@ -49,8 +69,11 @@
 			.text-hint {
 				color: var(--tg-hint-color);
 			}
-			.border-main {
-				border-color: rgba(0, 0, 0, 0.05);
+
+			/* Нативная прокрутка внутри блоков */
+			.ios-scroll {
+				-webkit-overflow-scrolling: touch;
+				overflow-y: auto;
 			}
 
 			.no-scrollbar::-webkit-scrollbar {
@@ -65,32 +88,45 @@
 				background: linear-gradient(135deg, #111111 0%, #b91c1c 100%);
 			}
 
-			/* Анимации ClickFood */
+			/* Анимация Apple-style */
 			.active-scale:active {
-				transform: scale(0.96);
-				transition: transform 0.1s;
+				transform: scale(0.97);
+				transition: transform 0.1s ease-out;
 			}
 
-			.safe-top {
-				padding-top: env(safe-area-inset-top);
+			/* Хелперы для безопасных зон (используй их в верстке) */
+			.pt-safe {
+				padding-top: var(--sat);
 			}
-			.safe-bottom {
-				padding-bottom: env(safe-area-inset-bottom);
+			.pb-safe {
+				padding-bottom: var(--sab);
+			}
+
+			/* Фикс для клавиатуры (чтобы контент не прыгал) */
+			#root {
+				display: flex;
+				flex-direction: column;
+				min-height: 100vh;
 			}
 		</style>
-		<script type="importmap"></script>
-		<!-- <link rel="stylesheet" href="/index.css" /> -->
 	</head>
-	<body class="bg-slate-50 text-slate-900">
+
+	<!-- Важно: убрал bg-slate-50, чтобы не перебивать тему ТГ -->
+	<body class="antialiased transition-colors duration-200">
 		<div id="root"></div>
+
 		<script type="module" src="/index.tsx"></script>
+
+		<script>
+			// Небольшой хак для моментальной синхронизации темы
+			const tg = window.Telegram.WebApp
+			tg.ready()
+			tg.expand()
+
+			// Если ТГ поддерживает установку цвета заголовка (v6.1+)
+			if (tg.setHeaderColor) {
+				tg.setHeaderColor('secondary_bg_color')
+			}
+		</script>
 	</body>
 </html>
-
-<!-- 
-    "react": "https://esm.sh/react@^19.2.4",
-    "react-dom": "https://esm.sh/react-dom@^19.2.4",
-    "react-router-dom": "https://esm.sh/react-router-dom@^7.1.3",
-    "lucide-react": "https://esm.sh/lucide-react@^0.475.0",
-    "react-dom/": "https://esm.sh/react-dom@^19.2.4/",
-    "react/": "https://esm.sh/react@^19.2.4/" -->

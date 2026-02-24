@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react'
+import React, { useState, useEffect, useMemo, useRef } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import imageCompression from 'browser-image-compression'
 import { VacancyForm } from './VacancyForm'
@@ -11,18 +11,22 @@ import {
 	useGetResumeDetailQuery,
 	useUpdateVacancyMutation,
 	useUpdateResumeMutation,
-	useUploadVacancyMediaBatchMutation,
+	useUploadMediaBatchMutation,
 } from '../../store/store'
+
+const tg = (window as any).Telegram?.WebApp
 
 const EditPage: React.FC<{ telegramId: number }> = ({ telegramId }) => {
 	const navigate = useNavigate()
 	const location = useLocation()
 	const { showToast } = useToast()
+	const formRef = useRef<HTMLFormElement>(null)
 
 	const state = location.state || {}
 	const type = state.type
 	const targetId = state.id || state.existingData?.id
 	const isVac = type === 'vac' || type === 'job'
+	const entity: 'vacancies' | 'resumes' = isVac ? 'vacancies' : 'resumes'
 
 	const { data: cities = [] } = useGetCitiesQuery(telegramId)
 	const { data: spheres = [] } = useGetSpheresQuery(telegramId)
@@ -38,12 +42,63 @@ const EditPage: React.FC<{ telegramId: number }> = ({ telegramId }) => {
 
 	const [updateVacancy] = useUpdateVacancyMutation()
 	const [updateResume] = useUpdateResumeMutation()
-	const [uploadMediaBatch] = useUploadVacancyMediaBatchMutation()
+	const [uploadMediaBatch] = useUploadMediaBatchMutation()
 
 	const [isSubmitting, setIsSubmitting] = useState(false)
 	const [statusText, setStatusText] = useState('')
 	const [newPhotos, setNewPhotos] = useState<File[]>([])
 	const [newVideos, setNewVideos] = useState<File[]>([])
+
+	// --- ИНТЕГРАЦИЯ С НАВЫМИ КНОПКАМИ (API v7.0+) ---
+	useEffect(() => {
+		const mainButton = tg.MainButton
+		const secondaryButton = tg.SecondaryButton
+
+		mainButton.setParams({
+			text: 'СОХРАНИТЬ ИЗМЕНЕНИЯ',
+			color: '#111111', // Стильный черный или основной цвет темы
+			text_color: '#ffffff',
+			is_active: !isSubmitting,
+			is_visible: true,
+		})
+
+		const handleMainClick = () => {
+			if (formRef.current) {
+				formRef.current.requestSubmit()
+				tg.HapticFeedback.impactOccurred('medium')
+			}
+		}
+
+		mainButton.onClick(handleMainClick)
+
+		if (tg.isVersionAtLeast('7.0')) {
+			secondaryButton
+				.setParams({
+					text: 'ОТМЕНИТЬ',
+					is_visible: true,
+					color: tg.themeParams.secondary_bg_color,
+					text_color: tg.themeParams.text_color,
+				})
+				.onClick(() => navigate(-1))
+		}
+
+		return () => {
+			mainButton.offClick(handleMainClick)
+			mainButton.hide()
+			secondaryButton.hide()
+		}
+	}, [isSubmitting, navigate])
+
+	// Управление прогрессом в кнопке и защитой от закрытия
+	useEffect(() => {
+		if (isSubmitting) {
+			tg.MainButton.showProgress()
+			tg.enableClosingConfirmation()
+		} else {
+			tg.MainButton.hideProgress()
+			tg.disableClosingConfirmation()
+		}
+	}, [isSubmitting])
 
 	const initialData = useMemo(() => {
 		const data: any = isVac ? vacData : resData
@@ -61,23 +116,19 @@ const EditPage: React.FC<{ telegramId: number }> = ({ telegramId }) => {
 		}
 	}, [isVac, vacData, resData])
 
-	// --- 1. ОБРАБОТКА ФАЙЛОВ (Только фото) ---
 	const processFiles = async (
 		originalPhotos: File[],
 		originalVideos: File[],
 	) => {
 		const processedPhotos: File[] = []
-
 		if (originalPhotos.length > 0) {
-			setStatusText('Оптимизация новых фото...')
+			setStatusText('Оптимизация фото...')
 			for (const file of originalPhotos) {
 				try {
-					// Сжимаем фото больше 1Мб
 					if (file.size > 1024 * 1024) {
 						const compressed = await imageCompression(file, {
-							maxSizeMB: 1,
+							maxSizeMB: 0.8,
 							maxWidthOrHeight: 1280,
-							useWebWorker: true,
 						})
 						processedPhotos.push(
 							new File([compressed], file.name, {
@@ -92,18 +143,15 @@ const EditPage: React.FC<{ telegramId: number }> = ({ telegramId }) => {
 				}
 			}
 		}
-
-		// Видео возвращаем как есть для стабильности в Telegram
 		return { processedPhotos, processedVideos: originalVideos }
 	}
 
 	const handleUpdate = async (formData: any) => {
-		if (!targetId) return
+		if (!targetId || isSubmitting) return
 		setIsSubmitting(true)
-		setStatusText('Сохранение изменений...')
+		setStatusText('Сохранение...')
 
 		try {
-			// 1. Сначала обновляем текстовую информацию
 			if (isVac) {
 				await updateVacancy({
 					id: targetId,
@@ -118,7 +166,6 @@ const EditPage: React.FC<{ telegramId: number }> = ({ telegramId }) => {
 				}).unwrap()
 			}
 
-			// 2. Обрабатываем и загружаем новые медиа, если они добавлены
 			if (newPhotos.length > 0 || newVideos.length > 0) {
 				const { processedPhotos, processedVideos } = await processFiles(
 					newPhotos,
@@ -127,20 +174,22 @@ const EditPage: React.FC<{ telegramId: number }> = ({ telegramId }) => {
 				const finalFiles = [...processedPhotos, ...processedVideos]
 
 				if (finalFiles.length > 0) {
-					setStatusText('Загрузка медиа на сервер...')
+					setStatusText('Загрузка медиа...')
 					await uploadMediaBatch({
-						vacancyId: targetId,
+						entity: entity,
+						id: targetId,
 						tid: telegramId,
 						files: finalFiles,
 					}).unwrap()
 				}
 			}
 
+			tg.HapticFeedback.notificationOccurred('success')
 			showToast('Изменения сохранены! ✨')
 			navigate('/profile')
 		} catch (e) {
-			console.error(e)
-			showToast('Ошибка при сохранении. Проверьте интернет', 'error')
+			tg.HapticFeedback.notificationOccurred('error')
+			showToast('Ошибка при обновлении', 'error')
 		} finally {
 			setIsSubmitting(false)
 		}
@@ -150,19 +199,17 @@ const EditPage: React.FC<{ telegramId: number }> = ({ telegramId }) => {
 
 	if (isLoading || !initialData) {
 		return (
-			<div className='min-h-screen flex items-center justify-center bg-white'>
-				<div className='w-8 h-8 border-2 border-slate-900 border-t-transparent rounded-full animate-spin' />
+			<div className='min-h-screen flex items-center justify-center bg-main'>
+				<div className='w-10 h-10 border-4 border-red-700 border-t-transparent rounded-full animate-spin' />
 			</div>
 		)
 	}
 
 	return (
-		<div className='bg-main min-h-screen pb-20 animate-in fade-in duration-300'>
+		<div className='bg-main min-h-screen pb-32 animate-in fade-in duration-300'>
 			<header
-				className='p-6 pt-12 flex items-center gap-4 sticky top-0 bg-main/90 backdrop-blur-md z-40 border-b border-white/5'
-				style={{
-					paddingTop: 'calc(1.5rem + env(safe-area-inset-top))',
-				}}
+				className='p-6 flex items-center gap-4 sticky top-0 bg-main/90 backdrop-blur-md z-40 border-b border-white/5'
+				style={{ paddingTop: 'calc(var(--sat) + 1rem)' }}
 			>
 				<button
 					onClick={() => navigate(-1)}
@@ -170,20 +217,23 @@ const EditPage: React.FC<{ telegramId: number }> = ({ telegramId }) => {
 				>
 					←
 				</button>
-				<h2 className='text-2xl font-black text-main'>
-					Редактирование
+				<h2 className='text-2xl font-black text-main tracking-tight'>
+					Редактировать
 				</h2>
 			</header>
 
 			<div className='p-6'>
 				{isVac ? (
 					<VacancyForm
+						formRef={formRef}
 						telegramId={telegramId}
 						cities={cities}
 						spheres={spheres}
 						initialData={initialData}
 						onSubmit={handleUpdate}
 						onMediaChange={(p, v) => {
+							if (p.length > newPhotos.length)
+								tg.HapticFeedback.selectionChanged()
 							setNewPhotos(p)
 							setNewVideos(v)
 						}}
@@ -191,12 +241,15 @@ const EditPage: React.FC<{ telegramId: number }> = ({ telegramId }) => {
 					/>
 				) : (
 					<ResumeForm
+						formRef={formRef}
 						telegramId={telegramId}
 						cities={cities}
 						spheres={spheres}
 						initialData={initialData}
 						onSubmit={handleUpdate}
 						onMediaChange={(p, v) => {
+							if (p.length > newPhotos.length)
+								tg.HapticFeedback.selectionChanged()
 							setNewPhotos(p)
 							setNewVideos(v)
 						}}
@@ -204,42 +257,17 @@ const EditPage: React.FC<{ telegramId: number }> = ({ telegramId }) => {
 					/>
 				)}
 
+				{/* Системный лоадер */}
 				{isSubmitting && (
-					<div className='fixed inset-0 z-[100] flex items-center justify-center p-6'>
-						{/* Задний фон с глубоким размытием */}
-						<div className='absolute inset-0 bg-slate-950/60 backdrop-blur-xl animate-in fade-in duration-500' />
-
-						{/* Карточка лоадера */}
-						<div className='relative bg-white/10 border border-white/20 p-8 rounded-[2.5rem] shadow-2xl flex flex-col items-center w-full max-w-[320px] overflow-hidden animate-in zoom-in-95 duration-300'>
-							{/* Декоративное свечение на фоне */}
-							<div className='absolute -top-10 -left-10 w-32 h-32 bg-main/30 rounded-full blur-3xl animate-pulse' />
-							<div className='absolute -bottom-10 -right-10 w-32 h-32 bg-blue-500/20 rounded-full blur-3xl animate-pulse delay-700' />
-
-							{/* Кастомный Spinner */}
-							<div className='relative w-20 h-20 mb-8'>
-								{/* Внешнее кольцо */}
-								<div className='absolute inset-0 border-4 border-white/10 rounded-full'></div>
-								{/* Бегущее кольцо */}
-								<div className='absolute inset-0 border-4 border-t-white border-r-transparent border-b-transparent border-l-transparent rounded-full animate-spin'></div>
-								{/* Центральная точка с пульсацией */}
-								<div className='absolute inset-[35%] bg-white rounded-full animate-pulse shadow-[0_0_15px_rgba(255,255,255,0.8)]'></div>
+					<div className='fixed inset-0 z-[200] flex items-center justify-center p-6 bg-black/60 backdrop-blur-sm animate-in fade-in'>
+						<div className='bg-main border border-white/10 p-8 rounded-[2.5rem] shadow-2xl flex flex-col items-center w-full max-w-[280px]'>
+							<div className='relative w-16 h-16 mb-6'>
+								<div className='absolute inset-0 border-4 border-secondary rounded-full'></div>
+								<div className='absolute inset-0 border-4 border-t-red-700 rounded-full animate-spin'></div>
 							</div>
-
-							{/* Текстовый блок */}
-							<div className='space-y-3 text-center relative z-10'>
-								<h3 className='text-white text-xl font-black tracking-tight leading-tight uppercase italic'>
-									{statusText}
-								</h3>
-								<div className='flex justify-center gap-1'>
-									<span className='w-1.5 h-1.5 bg-white/40 rounded-full animate-bounce [animation-delay:-0.3s]'></span>
-									<span className='w-1.5 h-1.5 bg-white/40 rounded-full animate-bounce [animation-delay:-0.15s]'></span>
-									<span className='w-1.5 h-1.5 bg-white/40 rounded-full animate-bounce'></span>
-								</div>
-								<p className='text-white/60 text-sm font-medium leading-relaxed px-4'>
-									Оптимизируем данные для моментальной
-									загрузки. Пожалуйста, не закрывайте.
-								</p>
-							</div>
+							<h3 className='text-main text-lg font-black uppercase italic tracking-tighter'>
+								{statusText}
+							</h3>
 						</div>
 					</div>
 				)}

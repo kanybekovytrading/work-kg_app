@@ -70,6 +70,33 @@ const tg = (window as any).Telegram?.WebApp
 
 // --- SHARED COMPONENTS ---
 
+const useTMA = () => {
+	const navigate = useNavigate()
+
+	const haptic = {
+		impact: (style: 'light' | 'medium' | 'heavy' = 'light') =>
+			tg.HapticFeedback.impactOccurred(style),
+		notification: (type: 'success' | 'warning' | 'error') =>
+			tg.HapticFeedback.notificationOccurred(type),
+		selection: () => tg.HapticFeedback.selectionChanged(),
+	}
+
+	const showNativePopup = (
+		title: string,
+		message: string,
+		buttons: any[],
+	) => {
+		tg.showPopup({ title, message, buttons }, (id: string) => {
+			if (id === 'ok') haptic.impact('medium')
+		})
+	}
+
+	const setHeader = (color: 'bg_color' | 'secondary_bg_color') => {
+		if (tg.setHeaderColor) tg.setHeaderColor(color)
+	}
+
+	return { tg, haptic, showNativePopup, setHeader }
+}
 const ToastContext = React.createContext<{
 	showToast: (message: string, type?: 'success' | 'error' | 'info') => void
 }>({ showToast: () => {} })
@@ -2397,6 +2424,7 @@ const AppContent: React.FC = () => {
 	const navigate = useNavigate()
 	const location = useLocation()
 	const [isPlusOpen, setIsPlusOpen] = useState(false)
+	const { tg, haptic, setHeader } = useTMA()
 
 	// Определяем ID пользователя Telegram
 	const telegramId = tg?.initDataUnsafe?.user?.id || 1810333455
@@ -2438,88 +2466,83 @@ const AppContent: React.FC = () => {
 
 	// Настройка Telegram WebApp (Full Screen & Back Button)
 	useEffect(() => {
-		if (tg) {
-			tg.ready()
-			tg.expand()
+		if (!tg) return
+		tg.ready()
+		tg.expand()
 
-			/**
-			 * Version-safe features placement
-			 * Fullscreen is supported from 8.0
-			 * disableVerticalSwipes is supported from 7.7
-			 * closingConfirmation is supported from 6.2
-			 */
-			const version = tg.version || '6.0'
-
-			if (tg.isVersionAtLeast('8.0') && tg.requestFullscreen) {
-				try {
-					tg.requestFullscreen()
-				} catch (e) {
-					console.warn('Fullscreen request failed', e)
-				}
-			}
-
-			if (tg.isVersionAtLeast('7.7') && tg.disableVerticalSwipes) {
-				tg.disableVerticalSwipes()
-			}
-
-			if (tg.isVersionAtLeast('6.2') && tg.enableClosingConfirmation) {
-				tg.enableClosingConfirmation()
-			}
-
-			const syncTheme = () => {
-				const root = document.documentElement
-				if (tg.themeParams.bg_color)
-					root.style.setProperty(
-						'--tg-bg-color',
-						tg.themeParams.bg_color,
-					)
-				if (tg.themeParams.secondary_bg_color)
-					root.style.setProperty(
-						'--tg-secondary-bg-color',
-						tg.themeParams.secondary_bg_color,
-					)
-				if (tg.themeParams.text_color)
-					root.style.setProperty(
-						'--tg-text-color',
-						tg.themeParams.text_color,
-					)
-				if (tg.themeParams.hint_color)
-					root.style.setProperty(
-						'--tg-hint-color',
-						tg.themeParams.hint_color,
-					)
-			}
-			syncTheme()
-			tg.onEvent('themeChanged', syncTheme)
+		// Включаем Fullscreen если доступно
+		if (tg.isVersionAtLeast('8.0')) {
+			try {
+				tg.requestFullscreen()
+			} catch (e) {}
 		}
 
-		// Global script error logger
-		const handleGlobalError = (event: ErrorEvent) => {
-			console.error(
-				'[Global Error]:',
-				event.message,
-				'at',
-				event.filename,
-				':',
-				event.lineno,
-			)
+		// Защита от потери данных
+		tg.enableClosingConfirmation()
+
+		// Синхронизация системных отступов
+		const syncSafeAreas = () => {
+			const root = document.documentElement
+			if (tg.safeAreaInset) {
+				root.style.setProperty('--sat', `${tg.safeAreaInset.top}px`)
+				root.style.setProperty('--sab', `${tg.safeAreaInset.bottom}px`)
+			}
 		}
-		window.addEventListener('error', handleGlobalError)
-		return () => window.removeEventListener('error', handleGlobalError)
+		tg.onEvent('safeAreaChanged', syncSafeAreas)
+		syncSafeAreas()
+
+		// Обработка темы
+		const handleTheme = () => {
+			document.body.style.backgroundColor = tg.themeParams.bg_color
+			setHeader('secondary_bg_color')
+		}
+		tg.onEvent('themeChanged', handleTheme)
+		handleTheme()
+
+		return () => tg.offEvent('safeAreaChanged', syncSafeAreas)
 	}, [])
-	// Управление нативной кнопкой "Назад"
+
 	useEffect(() => {
 		if (!tg) return
-		if (location.pathname === '/' || location.pathname === '/home') {
+
+		// Приводим к string, чтобы убрать ошибку TS2367
+		const currentPath = location.pathname as string
+
+		// 1. Управление кнопкой "Назад"
+		if (currentPath === '/' || currentPath === '/home') {
 			tg.BackButton.hide()
 		} else {
 			tg.BackButton.show()
-			const handleBack = () => navigate(-1)
-			tg.BackButton.onClick(handleBack)
-			return () => tg.BackButton.offClick(handleBack)
+			const onBack = () => {
+				haptic.impact('light')
+				navigate(-1)
+			}
+			tg.BackButton.onClick(onBack)
+			// Важно: удаляем обработчик при размонтировании или смене пути
+			return () => tg.BackButton.offClick(onBack)
 		}
-	}, [location, navigate])
+	}, [location.pathname])
 
+	useEffect(() => {
+		if (!tg) return
+
+		const currentPath = location.pathname as string
+
+		// 2. Управление кнопкой "Настройки" (SettingsButton)
+		if (currentPath === '/profile') {
+			tg.SettingsButton.show()
+			const onSettingsClick = () => {
+				haptic.impact('medium')
+				tg.showAlert(
+					'Настройки профиля будут доступны в следующем обновлении',
+				)
+			}
+			tg.SettingsButton.onClick(onSettingsClick)
+			return () => tg.SettingsButton.offClick(onSettingsClick)
+		} else {
+			tg.SettingsButton.hide()
+		}
+	}, [location.pathname])
 	// Логика Свайпов (Назад/Вперед)
 	useEffect(() => {
 		let touchStartX = 0
@@ -2569,14 +2592,6 @@ const AppContent: React.FC = () => {
 		}
 	}, [navigate, location.pathname])
 
-	// Если данные еще грузятся — показываем лоадер
-	if (isUserLoading)
-		return (
-			<div className='min-h-screen flex items-center justify-center bg-white'>
-				<div className='w-10 h-10 border-[3px] border-slate-900 border-t-transparent rounded-full animate-spin' />
-			</div>
-		)
-
 	const showNav = ['/', '/search', '/profile', '/bonuses', '/games'].includes(
 		location.pathname,
 	)
@@ -2587,6 +2602,14 @@ const AppContent: React.FC = () => {
 		}
 		navigate(path)
 	}
+
+	// Если данные еще грузятся — показываем лоадер
+	if (isUserLoading)
+		return (
+			<div className='min-h-screen flex items-center justify-center bg-white'>
+				<div className='w-10 h-10 border-[3px] border-slate-900 border-t-transparent rounded-full animate-spin' />
+			</div>
+		)
 
 	return (
 		<div className='min-h-screen flex flex-col bg-slate-50 text-slate-900 overflow-x-hidden'>
@@ -2640,129 +2663,148 @@ const AppContent: React.FC = () => {
 				</Routes>
 			</main>
 			{showNav && (
-				<nav className='fixed bottom-8 left-1/2 -translate-x-1/2 w-[92%] max-w-md z-50 animate-in slide-in-from-bottom-8 duration-700 delay-300 fill-mode-both'>
-					<div className='bg-secondary/80 backdrop-blur-3xl border border-white/10 rounded-[2.8rem] p-3 flex justify-between items-center shadow-[0_20px_50px_rgba(0,0,0,0.2)]'>
-						<NavButton
+				<nav
+					className='fixed left-1/2 -translate-x-1/2 w-[94%] max-w-md z-50 animate-in slide-in-from-bottom-10 duration-500'
+					style={{ bottom: 'calc(var(--sab) + 16px)' }}
+				>
+					<div className='bg-secondary/80 backdrop-blur-3xl border border-white/10 rounded-[2.8rem] p-2 flex justify-between items-center shadow-[0_20px_50px_rgba(0,0,0,0.3)]'>
+						<NavTab
 							active={location.pathname === '/'}
-							onClick={() => handleNav('/')}
 							icon={<Home size={22} />}
 							label='Дом'
+							onClick={() => navigate('/')}
 						/>
-						<NavButton
+						<NavTab
 							active={location.pathname === '/search'}
-							onClick={() => handleNav('/search')}
 							icon={<Search size={22} />}
 							label='Поиск'
+							onClick={() => navigate('/search')}
 						/>
 
-						<div className='relative -top-10 group'>
-							<div className='absolute inset-0 bg-red-600 rounded-full blur-xl opacity-30 group-active:opacity-50 transition-all'></div>
-							<button
-								onClick={() => {
-									if (tg?.HapticFeedback) {
-										tg.HapticFeedback.impactOccurred(
-											'heavy',
-										)
-									}
-									// ВМЕСТО navigate('/create') пишем:
-									setIsPlusOpen(true)
-								}}
-								className='relative w-16 h-16 bg-red-600 rounded-full flex items-center justify-center shadow-2xl text-white active:scale-90 transition-transform'
-							>
-								<Plus size={36} strokeWidth={3} />
-							</button>
-						</div>
+						<button
+							onClick={() => {
+								haptic.impact('heavy')
+								setIsPlusOpen(true)
+							}}
+							className='relative -top-8 w-16 h-16 bg-red-700 text-white rounded-full flex items-center justify-center shadow-2xl active:scale-90 transition-transform border-4 border-white dark:border-zinc-900'
+						>
+							<Plus size={32} strokeWidth={3} />
+						</button>
 
-						<NavButton
+						<NavTab
 							active={location.pathname === '/bonuses'}
-							onClick={() => handleNav('/bonuses')}
 							icon={<Star size={22} />}
 							label='Бонусы'
+							onClick={() => navigate('/bonuses')}
 						/>
-						<NavButton
+						<NavTab
 							active={location.pathname === '/profile'}
-							onClick={() => handleNav('/profile')}
 							icon={<UserIcon />}
 							label='Профиль'
+							onClick={() => navigate('/profile')}
 						/>
 					</div>
 				</nav>
 			)}
-			<BottomSheet
+			<NativeBottomSheet
 				isOpen={isPlusOpen}
 				onClose={() => setIsPlusOpen(false)}
-				title='Создать публикацию'
+				title='Публикация'
 			>
-				<button
-					onClick={() => {
-						setIsPlusOpen(false)
-						navigate('/create', { state: { type: 'vac' } })
-					}}
-					className='w-full flex items-center gap-4 p-6 bg-secondary border border-white/5 rounded-3xl active:bg-white/5 transition-all'
-				>
-					<div className='w-14 h-14 bg-red-700 text-white flex items-center justify-center rounded-2xl font-bold'>
-						💼
-					</div>
-					<div className='text-left'>
-						<div className='font-black text-main text-lg leading-tight'>
-							Вакансия
-						</div>
-						<div className='text-[10px] text-hint font-bold uppercase mt-1 tracking-widest'>
-							Поиск сотрудника
-						</div>
-					</div>
-				</button>
-				<button
-					onClick={() => {
-						setIsPlusOpen(false)
-						navigate('/create', { state: { type: 'res' } })
-					}}
-					className='w-full flex items-center gap-4 p-6 bg-secondary border border-white/5 rounded-3xl active:bg-white/5 transition-all'
-				>
-					<div className='w-14 h-14 bg-main text-red-700 border border-white/5 flex items-center justify-center rounded-2xl font-bold'>
-						📄
-					</div>
-					<div className='text-left'>
-						<div className='font-black text-main text-lg leading-tight'>
-							Резюме
-						</div>
-						<div className='text-[10px] text-hint font-bold uppercase mt-1 tracking-widest'>
-							Поиск работы
-						</div>
-					</div>
-				</button>
-			</BottomSheet>
+				<div className='space-y-3'>
+					<ActionButton
+						icon='💼'
+						title='Вакансия'
+						sub='Ищу сотрудника'
+						onClick={() => {
+							setIsPlusOpen(false)
+							navigate('/create', { state: { type: 'vac' } })
+						}}
+					/>
+					<ActionButton
+						icon='📄'
+						title='Резюме'
+						sub='Ищу работу'
+						onClick={() => {
+							setIsPlusOpen(false)
+							navigate('/create', { state: { type: 'res' } })
+						}}
+					/>
+				</div>
+			</NativeBottomSheet>
 		</div>
 	)
 }
 
-const NavButton = ({ active, icon, label, onClick }: any) => (
+const ActionButton = ({ icon, title, sub, onClick }: any) => (
 	<button
-		onClick={onClick}
-		className={`flex flex-col items-center gap-1.5 flex-1 transition-all duration-300 ${active ? 'text-red-600 scale-110' : 'text-hint hover:text-main'}`}
+		onClick={() => {
+			tg.HapticFeedback.impactOccurred('medium')
+			onClick()
+		}}
+		className='w-full flex items-center gap-4 p-5 bg-secondary rounded-[2rem] active:scale-95 transition-all'
 	>
-		<div
-			className={`transition-transform duration-300 ${active ? 'translate-y-[-2px]' : ''}`}
-		>
+		<div className='w-12 h-12 bg-main rounded-2xl flex items-center justify-center text-2xl shadow-sm'>
 			{icon}
 		</div>
-		<span
-			className={`text-[8px] font-black uppercase tracking-widest transition-all ${active ? 'opacity-100' : 'opacity-40'}`}
-		>
-			{label}
-		</span>
-		{active && <div className='w-1 h-1 bg-red-600 rounded-full'></div>}
+		<div className='text-left'>
+			<div className='font-black text-main text-lg leading-tight'>
+				{title}
+			</div>
+			<div className='text-[10px] text-hint font-bold uppercase tracking-widest'>
+				{sub}
+			</div>
+		</div>
 	</button>
 )
 
-const NavTab = ({ active, icon, onClick }: any) => (
-	<button
-		onClick={onClick}
-		className={`flex items-center justify-center rounded-2xl transition-all w-12 h-12 ${active ? 'text-red-700 bg-red-50/30 active-tab-glow' : 'text-slate-300'}`}
-	>
-		{icon}
-	</button>
-)
+const NativeBottomSheet = ({ isOpen, onClose, title, children }: any) => {
+	if (!isOpen) return null
+	return (
+		<div className='fixed inset-0 z-[100] flex items-end justify-center animate-in fade-in duration-300'>
+			<div
+				className='absolute inset-0 bg-black/50 backdrop-blur-sm'
+				onClick={onClose}
+			/>
+			<div
+				className='relative w-full max-w-xl bg-main rounded-t-[2.5rem] p-8 animate-in slide-in-from-bottom duration-500 shadow-2xl'
+				style={{ paddingBottom: 'calc(var(--sab) + 2rem)' }}
+			>
+				<div className='w-12 h-1.5 bg-secondary rounded-full mx-auto mb-8 opacity-40' />
+				<div className='flex justify-between items-center mb-8'>
+					<h2 className='text-2xl font-black text-main tracking-tighter'>
+						{title}
+					</h2>
+					<button
+						onClick={onClose}
+						className='p-2 bg-secondary rounded-full text-hint'
+					>
+						✕
+					</button>
+				</div>
+				{children}
+			</div>
+		</div>
+	)
+}
+
+const NavTab = ({ active, icon, label, onClick }: any) => {
+	const handleClick = () => {
+		tg.HapticFeedback.selectionChanged()
+		onClick()
+	}
+	return (
+		<button
+			onClick={handleClick}
+			className={`flex flex-col items-center justify-center flex-1 gap-1 transition-all ${active ? 'text-red-700 scale-110' : 'text-hint'}`}
+		>
+			{icon}
+			<span className='text-[9px] font-black uppercase tracking-tighter'>
+				{label}
+			</span>
+		</button>
+	)
+}
 
 const HomeIcon = () => (
 	<svg
