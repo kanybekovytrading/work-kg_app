@@ -10,8 +10,6 @@ import { FormField } from '.'
 import { ElegantSelect } from '../../../App'
 import { formatPhoneKG } from '../../../constants'
 
-const tg = (window as any).Telegram?.WebApp
-
 // Оригинальный стиль инпутов с поддержкой темы
 const inputClass =
 	'w-full bg-secondary border border-white/5 h-14 px-6 rounded-2xl text-sm font-bold focus:outline-none ring-4 ring-transparent focus:ring-red-500/10 transition-all placeholder:text-hint/40 text-main shadow-sm'
@@ -24,7 +22,6 @@ interface Props {
 	cities: any[]
 	spheres: any[]
 	telegramId: number
-	formRef: React.RefObject<HTMLFormElement> // Добавлено для связи с CreatePage
 }
 
 export const ResumeForm: React.FC<Props> = ({
@@ -35,7 +32,6 @@ export const ResumeForm: React.FC<Props> = ({
 	cities,
 	spheres,
 	telegramId,
-	formRef,
 }) => {
 	const {
 		control,
@@ -43,10 +39,9 @@ export const ResumeForm: React.FC<Props> = ({
 		watch,
 		setValue,
 		reset,
-		formState: { errors, isValid },
+		formState: { errors },
 	} = useForm<ResumeFormData>({
 		resolver: zodResolver(resumeSchema) as any,
-		mode: 'onChange', // Чтобы статус isValid обновлялся для MainButton
 		defaultValues: initialData || {
 			name: '',
 			cityId: 1,
@@ -61,78 +56,10 @@ export const ResumeForm: React.FC<Props> = ({
 		},
 	})
 
-	const [selectedPhotos, setSelectedPhotos] = useState<File[]>([])
-	const [selectedVideos, setSelectedVideos] = useState<File[]>([])
-
-	const allValues = watch()
 	const selectedSphere = watch('sphereId')
 	const selectedCategory = watch('categoryId')
 
-	// --- 1. CLOUD STORAGE (ЧЕРНОВИК) ---
-	useEffect(() => {
-		if (!initialData && tg.CloudStorage) {
-			tg.CloudStorage.getItem(
-				'resume_draft',
-				(err: any, value: string) => {
-					if (value) {
-						try {
-							reset(JSON.parse(value))
-						} catch (e) {
-							console.error('Draft load error', e)
-						}
-					}
-				},
-			)
-		}
-	}, [initialData, reset])
-
-	useEffect(() => {
-		if (!initialData && !loading) {
-			const timer = setTimeout(() => {
-				tg.CloudStorage.setItem(
-					'resume_draft',
-					JSON.stringify(allValues),
-				)
-			}, 1000)
-			return () => clearTimeout(timer)
-		}
-	}, [allValues, initialData, loading])
-
-	// --- 2. MAIN BUTTON INTEGRATION ---
-	useEffect(() => {
-		const mainButton = tg.MainButton
-
-		mainButton.setParams({
-			text: initialData ? 'СОХРАНИТЬ РЕЗЮМЕ' : 'ОПУБЛИКОВАТЬ РЕЗЮМЕ',
-			color: '#111111', // Черный как в вашем стиле
-			text_color: '#ffffff',
-			is_visible: true,
-			is_active: true,
-		})
-
-		const handleMainClick = () => {
-			if (isValid) {
-				handleSubmit(onSubmit)()
-			} else {
-				tg.HapticFeedback.notificationOccurred('error')
-				tg.showAlert('Пожалуйста, заполните все поля корректно')
-			}
-		}
-
-		mainButton.onClick(handleMainClick)
-		return () => {
-			mainButton.offClick(handleMainClick)
-			mainButton.hide()
-		}
-	}, [isValid, initialData, handleSubmit, onSubmit])
-
-	// Управление лоадером в кнопке
-	useEffect(() => {
-		if (loading) tg.MainButton.showProgress()
-		else tg.MainButton.hideProgress()
-	}, [loading])
-
-	// --- 3. ДАННЫЕ И МЕДИА ---
+	// RTK Query для категорий и подкатегорий
 	const { data: categories = [], isFetching: isCatLoading } =
 		useGetCategoriesQuery(
 			{ tid: telegramId, sid: selectedSphere },
@@ -145,25 +72,19 @@ export const ResumeForm: React.FC<Props> = ({
 			{ skip: selectedCategory === 0 },
 		)
 
+	const [selectedPhotos, setSelectedPhotos] = useState<File[]>([])
+	const [selectedVideos, setSelectedVideos] = useState<File[]>([])
+
+	useEffect(() => {
+		if (initialData) reset(initialData)
+	}, [initialData, reset])
+
 	useEffect(() => {
 		onMediaChange(selectedPhotos, selectedVideos)
 	}, [selectedPhotos, selectedVideos, onMediaChange])
 
-	const removeMedia = (index: number, type: 'photo' | 'video') => {
-		tg.HapticFeedback.impactOccurred('light')
-		if (type === 'photo') {
-			setSelectedPhotos((prev) => prev.filter((_, i) => i !== index))
-		} else {
-			setSelectedVideos((prev) => prev.filter((_, i) => i !== index))
-		}
-	}
-
 	return (
-		<form
-			ref={formRef}
-			onSubmit={handleSubmit(onSubmit)}
-			className='space-y-6 pb-24'
-		>
+		<form onSubmit={handleSubmit(onSubmit)} className='space-y-6'>
 			{/* Ваше Имя */}
 			<FormField label='Ваше Имя' error={errors.name?.message}>
 				<Controller
@@ -179,6 +100,7 @@ export const ResumeForm: React.FC<Props> = ({
 				/>
 			</FormField>
 
+			{/* Возраст и Опыт */}
 			<div className='grid grid-cols-2 gap-4'>
 				<FormField label='Возраст' error={errors.age?.message}>
 					<Controller
@@ -227,23 +149,21 @@ export const ResumeForm: React.FC<Props> = ({
 				</FormField>
 			</div>
 
+			{/* Пол */}
 			<div className='grid grid-cols-2 gap-4'>
 				<Controller
 					name='gender'
 					control={control}
 					render={({ field }) => (
 						<ElegantSelect
+							placeholder=''
 							label='Пол'
 							value={field.value}
 							options={[
 								{ id: 'MALE', name: 'Мужской', icon: '👨' },
 								{ id: 'FEMALE', name: 'Женский', icon: '👩' },
 							]}
-							onChange={(val) => {
-								tg.HapticFeedback.selectionChanged()
-								field.onChange(val)
-							}}
-							placeholder=''
+							onChange={field.onChange}
 						/>
 					)}
 				/>
@@ -266,17 +186,18 @@ export const ResumeForm: React.FC<Props> = ({
 				</FormField>
 			</div>
 
+			{/* Bento-блок выбора сферы (bg-secondary/40 для мягкого выделения) */}
 			<div className='space-y-6 p-6 bg-secondary/40 rounded-[2.5rem] border border-white/5 shadow-inner'>
 				<Controller
 					name='cityId'
 					control={control}
 					render={({ field }) => (
 						<ElegantSelect
+							placeholder=''
 							label='Город'
 							value={field.value}
 							options={cities}
 							onChange={field.onChange}
-							placeholder=''
 						/>
 					)}
 				/>
@@ -285,16 +206,15 @@ export const ResumeForm: React.FC<Props> = ({
 					control={control}
 					render={({ field }) => (
 						<ElegantSelect
+							placeholder=''
 							label='Желаемая сфера'
 							value={field.value}
 							options={spheres}
 							onChange={(val) => {
-								tg.HapticFeedback.selectionChanged()
 								field.onChange(val)
 								setValue('categoryId', 0)
 								setValue('subcategoryId', 0)
 							}}
-							placeholder=''
 						/>
 					)}
 				/>
@@ -305,19 +225,18 @@ export const ResumeForm: React.FC<Props> = ({
 						render={({ field }) => (
 							<div className={isCatLoading ? 'opacity-60' : ''}>
 								<ElegantSelect
-									label='Категория'
-									value={field.value}
-									options={categories}
-									onChange={(val) => {
-										tg.HapticFeedback.selectionChanged()
-										field.onChange(val)
-										setValue('subcategoryId', 0)
-									}}
 									placeholder={
 										isCatLoading
 											? 'Загрузка...'
 											: 'Выберите категорию'
 									}
+									label='Категория'
+									value={field.value}
+									options={categories}
+									onChange={(val) => {
+										field.onChange(val)
+										setValue('subcategoryId', 0)
+									}}
 								/>
 							</div>
 						)}
@@ -332,15 +251,15 @@ export const ResumeForm: React.FC<Props> = ({
 								className={isSubCatLoading ? 'opacity-60' : ''}
 							>
 								<ElegantSelect
-									label='Подкатегория'
-									value={field.value}
-									options={subcategories}
-									onChange={field.onChange}
 									placeholder={
 										isSubCatLoading
 											? 'Загрузка...'
 											: 'Выберите подкатегорию'
 									}
+									label='Подкатегория'
+									value={field.value}
+									options={subcategories}
+									onChange={field.onChange}
 								/>
 							</div>
 						)}
@@ -360,15 +279,13 @@ export const ResumeForm: React.FC<Props> = ({
 							multiple
 							accept='image/*'
 							className='hidden'
-							onChange={(e) => {
-								if (e.target.files) {
-									tg.HapticFeedback.impactOccurred('medium')
-									setSelectedPhotos([
-										...selectedPhotos,
-										...Array.from(e.target.files),
-									])
-								}
-							}}
+							onChange={(e) =>
+								e.target.files &&
+								setSelectedPhotos([
+									...selectedPhotos,
+									...Array.from(e.target.files),
+								])
+							}
 						/>
 						<span className='text-[10px] font-black uppercase'>
 							+ Фото ({selectedPhotos.length})
@@ -380,15 +297,13 @@ export const ResumeForm: React.FC<Props> = ({
 							multiple
 							accept='video/*'
 							className='hidden'
-							onChange={(e) => {
-								if (e.target.files) {
-									tg.HapticFeedback.impactOccurred('medium')
-									setSelectedVideos([
-										...selectedVideos,
-										...Array.from(e.target.files),
-									])
-								}
-							}}
+							onChange={(e) =>
+								e.target.files &&
+								setSelectedVideos([
+									...selectedVideos,
+									...Array.from(e.target.files),
+								])
+							}
 						/>
 						<span className='text-[10px] font-black uppercase'>
 							+ Видео ({selectedVideos.length})
@@ -396,6 +311,7 @@ export const ResumeForm: React.FC<Props> = ({
 					</label>
 				</div>
 
+				{/* Превью */}
 				<div className='flex gap-3 overflow-x-auto no-scrollbar py-2'>
 					{selectedPhotos.map((file, i) => (
 						<div
@@ -405,29 +321,18 @@ export const ResumeForm: React.FC<Props> = ({
 							<img
 								src={URL.createObjectURL(file)}
 								className='w-full h-full object-cover'
-								alt=''
+								alt='preview'
 							/>
 							<button
 								type='button'
-								onClick={() => removeMedia(i, 'photo')}
-								className='absolute top-1 right-1 w-6 h-6 bg-red-600 text-white rounded-full flex items-center justify-center'
-							>
-								×
-							</button>
-						</div>
-					))}
-					{selectedVideos.map((file, i) => (
-						<div
-							key={i}
-							className='relative shrink-0 w-20 h-20 rounded-2xl bg-slate-800 border border-white/10 flex items-center justify-center'
-						>
-							<span className='text-[8px] text-white font-bold'>
-								VIDEO
-							</span>
-							<button
-								type='button'
-								onClick={() => removeMedia(i, 'video')}
-								className='absolute top-1 right-1 w-6 h-6 bg-red-600 text-white rounded-full flex items-center justify-center'
+								onClick={() =>
+									setSelectedPhotos(
+										selectedPhotos.filter(
+											(_, idx) => idx !== i,
+										),
+									)
+								}
+								className='absolute top-1 right-1 w-5 h-5 bg-red-600 text-white rounded-full text-[10px] flex items-center justify-center'
 							>
 								×
 							</button>
@@ -436,6 +341,7 @@ export const ResumeForm: React.FC<Props> = ({
 				</div>
 			</div>
 
+			{/* О себе */}
 			<FormField
 				label='О себе / Навыки'
 				error={errors.description?.message}
@@ -453,8 +359,17 @@ export const ResumeForm: React.FC<Props> = ({
 				/>
 			</FormField>
 
-			{/* Скрытая кнопка для работы requestSubmit */}
-			<button type='submit' className='hidden' />
+			<button
+				type='submit'
+				disabled={loading}
+				className='w-full py-6 bg-[#111111] text-white rounded-[2rem] font-black uppercase text-xs tracking-widest shadow-xl active:scale-[0.98] transition-all'
+			>
+				{loading
+					? 'Загрузка...'
+					: initialData
+						? 'Сохранить изменения'
+						: 'Опубликовать резюме'}
+			</button>
 		</form>
 	)
 }
