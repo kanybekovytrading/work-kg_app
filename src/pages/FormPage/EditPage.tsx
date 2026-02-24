@@ -225,7 +225,6 @@ const EditPage: React.FC<{ telegramId: number }> = ({ telegramId }) => {
 			<div className='p-6'>
 				{isVac ? (
 					<VacancyForm
-						formRef={formRef}
 						telegramId={telegramId}
 						cities={cities}
 						spheres={spheres}
@@ -241,7 +240,6 @@ const EditPage: React.FC<{ telegramId: number }> = ({ telegramId }) => {
 					/>
 				) : (
 					<ResumeForm
-						formRef={formRef}
 						telegramId={telegramId}
 						cities={cities}
 						spheres={spheres}
