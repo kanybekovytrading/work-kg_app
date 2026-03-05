@@ -1946,33 +1946,31 @@ export const SubscriptionPage: React.FC<{ telegramId: number }> = ({
 	const navigate = useNavigate()
 	const { showToast } = useToast()
 
-	// 1. Получаем статус подписки
 	const { data: status, isLoading: pageLoading } =
 		useGetSubscriptionStatusQuery(telegramId)
 
-	// 2. Мутация для создания оплаты
 	const [createPayment, { isLoading: isMutationLoading, data }] =
 		useCreatePaymentMutation()
 
 	const plans = [
 		{
-			id: 'THREE_DAYS',
-			name: '3 Дня',
-			price: '169 сом',
+			id: 'ONE_WEEK',
+			name: '1 Неделя',
+			price: '149 сом',
 			desc: 'Быстрый старт',
 			icon: '🔥',
 		},
 		{
-			id: 'ONE_WEEK',
-			name: '7 Дней',
-			price: '273 сом',
+			id: 'ONE_MONTH',
+			name: '1 Месяц',
+			price: '290 сом',
 			desc: 'Популярный выбор',
 			icon: '💎',
 		},
 		{
-			id: 'ONE_MONTH',
-			name: '30 Дней',
-			price: '802 сом',
+			id: 'THREE_MONTHS',
+			name: '3 Месяца',
+			price: '490 сом',
 			desc: 'Максимальная выгода',
 			icon: '🚀',
 		},
@@ -1985,8 +1983,10 @@ export const SubscriptionPage: React.FC<{ telegramId: number }> = ({
 				planType: planId,
 			}).unwrap()
 			if (res?.paymentUrl) {
-				if (tg) {
-					tg.openLink(res.paymentUrl, { try_instant_view: false })
+				if (window.Telegram?.WebApp) {
+					window.Telegram.WebApp.openLink(res.paymentUrl, {
+						try_instant_view: false,
+					})
 				} else {
 					window.location.href = res.paymentUrl
 				}
@@ -2044,7 +2044,6 @@ export const SubscriptionPage: React.FC<{ telegramId: number }> = ({
 						: 'bg-[#111111]'
 				}`}
 			>
-				{/* Декоративные круги на фоне */}
 				<div className='absolute top-0 right-0 w-64 h-64 bg-white/10 blur-[100px] rounded-full'></div>
 				<div className='absolute bottom-0 left-0 w-40 h-40 bg-black/20 blur-[80px] rounded-full'></div>
 
@@ -2073,7 +2072,7 @@ export const SubscriptionPage: React.FC<{ telegramId: number }> = ({
 				)}
 			</div>
 
-			{/* Free Tier Info (Базовый уровень) */}
+			{/* Free Tier Info */}
 			<div
 				className={`transition-all duration-500 border p-6 rounded-[2.5rem] flex items-center justify-between ${
 					status?.hasActiveSubscription
@@ -2106,15 +2105,24 @@ export const SubscriptionPage: React.FC<{ telegramId: number }> = ({
 				)}
 			</div>
 
+			{/* 👇👇👇 ВОТ ЗДЕСЬ НАДПИСЬ ПРО АКЦИЮ 👇👇👇 */}
+			{!status?.hasActiveSubscription && (
+				<div className='bg-red-50 border-2 border-red-100 rounded-3xl p-4 text-center'>
+					<p className='text-sm font-black text-red-600 uppercase tracking-widest'>
+						🔥 Внимание: Эта тарификация действует только до 15 мая
+					</p>
+				</div>
+			)}
+			{/* 👆👆👆👆👆👆👆👆👆👆👆👆👆👆👆👆👆👆👆 */}
+
 			{/* Subscription Plans */}
 			<div className='grid grid-cols-1 gap-5'>
 				{plans?.map((p) => {
 					const isActivePlan =
 						status?.hasActiveSubscription &&
 						status?.planType === p.id
-					// Проверяем, грузится ли именно эта кнопка
 					const isThisPlanLoading =
-						isMutationLoading && data.planType === p.id
+						isMutationLoading && data?.planType === p.id
 
 					return (
 						<button
@@ -2133,7 +2141,7 @@ export const SubscriptionPage: React.FC<{ telegramId: number }> = ({
 										className={`text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-widest ${
 											isActivePlan
 												? 'bg-emerald-500 text-white'
-												: p.id === 'ONE_WEEK'
+												: p.id === 'ONE_MONTH'
 													? 'bg-red-50 text-red-800'
 													: 'bg-slate-50 text-slate-900'
 										}`}
@@ -2202,7 +2210,6 @@ export const SubscriptionPage: React.FC<{ telegramId: number }> = ({
 	)
 }
 
-// Вспомогательный компонент для списка преимуществ
 const BenefitItem = ({
 	icon,
 	title,
